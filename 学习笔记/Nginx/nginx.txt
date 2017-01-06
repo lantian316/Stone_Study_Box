@@ -372,12 +372,22 @@ ngxin特性：
                 6、access_log /spool/logs/nginx-access.log compression buffer=32k;
 
                 7、防盗链
+                    示例1：
                     valid_referers none blocked server_names
                                    *.example.com example.* www.example.org/galleries/   #允许的主机访问
                                    ~\.google\.;                                         #允许google访问，主要是google的爬虫
 
                     if ($invalid_referer) {
                         return 403;
+                    }
+
+                    示例2：
+                    location ~* \.(jpg|png|gif|jpeg)$ {
+                        root    /www/b.org;
+                        valid_referers  none    blocked www.b.org   *.b.org;
+                        if($invalid_referer){
+                            rewrite ^/  http://www.b.org/403.html;
+                        }
                     }
 
                     #当直接通过浏览器访问的时候表现为none，应该允许访问
@@ -414,6 +424,62 @@ ngxin特性：
 
                     rewrite_log     on|off
                         是否把重写过程记录在错误日志中，默认为notice级别；默认为off
+                        如何打开，查看此功能，在一个非常繁忙的服务器中建议关闭。只要确保重写规则没问题即可。
+                            在location中添加
+                                rewrite_log on;
+                            然后在全局错误日志中定义错误日志级别；
+                                error_log   /var/log/nginx/error    notice;
+
+                    return code:
+                        用于结束rewrite规则，并且为客户返回状态码；
+                        可以使用的状态码有204、400、402-406、500-504等
+
+                    if (condition) {
+
+                    }
+
+                9、服务器状态模块stub_status
+                    location /server-status {
+                        stub_status     on;
+                    }
+
+                    [root@linuxnb vhost]# curl http://man.linuxnb.com/status
+                    Active connections: 291
+                    server accepts handled requests
+                     16630948 16630948 31070465
+                    Reading: 6 Writing: 179 Waiting: 106
+
+                    #Active connections     表示 当前活动状态的连接总数
+                    第二行：
+                        第一个数字表示     已经接受的连接数
+                        第二个数字表示     已经建立并处理过请求的连接数(总数)
+                        第一个数字表示     通过这些建立的连接处理的请求的总数
+                    第三行：
+                       Reading：正在读取用户请求，正在接收的新连接有多少个
+                       Writing：正在读取请求主体部分、正在构建响应报文部分、或者是把响应报文开始发往客户端的
+                       Waiting：长连接中处于活动状态的个数(一般不包括Reading和Writing)
+
+                10、gzip压缩
+                    nginx将响应报文发送至客户端之前可以启用压缩功能，这能够有效地节约带宽，并提高响应至客户端的速度。通常编译nginx默认会附带gzip压缩的功能，因此，可以直接启用之。
+                    示例：
+                        http {
+                            gzip on;
+                            gzip_http_version 1.0;
+                            gzip_comp_level 2;
+                            gzip_types text/plain text/css application/x-javascript text/xml application/xml application/xml+rss text/javascript application/javascript application/json;
+                            gzip_disable msie6;
+                        }
+
+                    gzip_proxied指令可以定义对客户端请求哪类对象启用压缩功能，如“expired”表示对由于使用了expire首部定义而无法缓存的对象启用压缩功能，
+                    其它可接受的值还有“no-cache”、“no-store”、“private”、“no_last_modified”、“no_etag”和“auth”等，而“off”则表示关闭压缩功能。
+
+
+
+
+
+
+
+
 
 
 
