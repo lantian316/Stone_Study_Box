@@ -221,6 +221,210 @@ ngxin特性：
                     4、error_page code ... [=[response]] uri;
                         当对于某个请求返回错误时，如果匹配上了error_page指令中设定的code，则重定向到新的URI中。
                         错误页面重定向。
+                        error_page 404 /404.html;          #返回404状态码
+                        error_page 404 =200 /404.html;     #返回200状态码
+                    5、try_files path1 [path2 ...] uri;
+                        自左向右尝试读取由path所指定路径，在第一次找到即停止并返回；如果所有path都不存在，则返回最后一个url；
+
+                        location ~* ^/documents/(.*)$ {
+                            root    /www/htdocs;
+                            try_files   $uri    /docu/$1    /temp.html;
+                        }
+
+                        1、http://www.linuxnb.com/documents/a.html
+                        2、http://www.linuxnb.com/docu/a.html
+                        3、http://www.linuxnb.com/temp.html
+
+                        访问地址1，如果访问到则返回，如果访问不到则继续访问2，如果访问到则返回，如果访问不到则返回地址3
+
+                7、网络连接相关的设置：
+                    1、keepalive_timeout time;
+                        设置保持连接的超时时间。默认为75秒。
+                    2、keepalive_requests N;
+                        在一次长连接上允许承载的最大请求数。
+                    3、keepalive_disable [msie6 | safari | none ...]
+                        对指定的浏览器禁止使用长连接；
+                    4、tcp_nodelay   on|off
+                        对keepalive连接是否使用TCP_NODELAY选项；
+                    5、client_header_timeout     time;
+                        读取http请求首部的超时时长；单位秒，默认60秒。
+                    6、client_body_timeout   time;
+                        读取http请求包体的超时时间；单位秒，默认60秒。
+                    7、send_timeout  time;
+                        发送响应的超时时长
+
+
+                8、对客户端请求的限制
+                    1、limit_except  method  ....  { ... }        [取反，限定method方法不可用，其余方法可用]
+                        限定对范围之外的其他方法的访问控制；
+
+                        limit_except GET{
+                            allow  192.168.1.1/16;
+                            deny    all;
+                        }
+
+                    2、client_max_body_size  SIZE;
+                        http请求包体的最大值；常用于限定客户端所能够请求的最大包体；根据请求首部中的Content-Length来检测，以避免无用的传输
+
+                    3、limit_rate    speed;
+                        限制客户端每秒钟传输的字节数。默认为0，表示没有限制；默认单位是字节
+
+                    4、limit_rate_after  time;
+                        nginx向客户端发送响应报文时，如果时长超出了此处指定的时长，则后续的发送过程开始限速，由limit_rate的设定值限速
+
+
+
+                9、文件操作的优化：
+                    1、sendfile  on|off
+                        是否启用sendfile功能
+
+                    2、aio on|off
+                        是否启用aio
+
+                    3、open_file_cache max=N [inactive=time] | off
+                        是否打开文件缓存功能；
+                        max：用于定义缓存条目的最大值；当满了以后根据LRU(最近最少使用)算法进行清理置换
+                        inactive：某缓存条目在指定时长内没有被访问过的时候，将自动被删除。默认为60秒。
+                        并没有缓存文件的数据，只缓存了文件的源数据
+                        缓存的信息包括：
+                            文件句柄、文件大小和上次修改时间。
+                            已经打开的目录结构；
+                            没有找到或没有访问权限的信息
+
+                    4、open_file_cache_errors    on|off
+                        是否缓存文件找不到或没有访问权限等相关信息。
+
+                    5、open_file_cache_valid     time;
+                        多长时间检查一次缓存中的条目是否超出非活动时长，默认60秒；
+
+                    6、open_file_cache_min_use   #;
+                        在inactive指定的时长内被访问超出此处指定的次数的，才不会被删除。
+
+
+                10、对客户端请求的特殊处理
+                    1、ignore_invalid_headers    on|off
+                        是否忽略不合法的http首部；默认为on；off意味着请求首部中出现不合规的首部将拒绝响应；只能用于server和http
+
+                    2、log_not_found on|off
+                        是否将文件找不到的信息也记录进错误日志中；
+
+                    3、resolver  address;
+                        指定nginx使用的dns服务器地址；
+
+                    4、resolver_timeout  time;
+                        指定DNS结息超时时长，默认为30秒；
+
+                    5、server_tokens     on|off
+                        是否在错误页面显示nginx版本号；建议不要显示，改为off
+
+                http核心模块的内置变量：
+                    $uri : 当前请求的uri，不带参数；
+                    $request_uri : 请求的uri，带完整参数；
+                    $host: http请求报文中host首部；如果请求中没有host首部，则以处理此请求的虚拟主机的主机名代替；
+                    $hostname ： nginx服务运行在的主机的主机名；
+                    $remote_addr：客户端IP
+                    $remote_port：客户端port
+                    $remote_user: 使用用户认证时客户端用户输入的用户名；
+                    $request_filename:用户请求中的URI经过本地root或alias转换后映射的本地的文件路径；
+                    $request_method：请求方法
+                    $server_addr：服务器地址
+                    $server_name：服务器名称(server名)
+                    $server_port：服务器端口
+                    $server_protocol:服务器向客户端发送响应时的协议，如http/1.1，http/1.0
+                    $scheme：在请求中使用scheme，如https://www.linuxnb.com/中的https；
+                    $http_HEADER：匹配请求报文中指定的HEADER，比如$http_host:匹配请求报文中的host首部(变量要小写)
+                    $sent_http_HEADER:匹配响应报文中指定的HEADER，例如$http_content_type匹配响应报文中的content-type首部(变量要小写)
+                    $document_root：当前请求映射到的root位置；
+
+
+
+            配置使用nginx：
+                1、nginx虚拟主机
+                    server{
+                        listen
+                        server_name
+                        root
+                    }
+
+                2、访问控制access模块(基于ip的访问控制)
+                    allow
+                    deny
+
+                3、用户认证示例
+                    location /admin/ {
+                        root    /admin;
+                        auth_basic           "admin area";
+                        auth_basic_user_file conf/.htpasswd;
+                    }
+                    生成密码文件：
+                    htpasswd -c -m /usr/local/ngxin/.passwd tom     #第一次使用-c，tom是用户，回车输入密码即可
+                    htpasswd -m /usr/local/ngxin/.passwd jerry      #第二次不使用-c，jerry是用户，回车输入密码即可
+
+                4、autoindex on;
+                    建立下载站点时使用
+                    location /download/ {
+                        root    /download;
+                        autoindex on;
+                    }
+
+                5、Limit Requests模块，限制单位时间内可以访问的次数，在一定程度上可以防范Ddos攻击
+
+                6、access_log /spool/logs/nginx-access.log compression buffer=32k;
+
+                7、防盗链
+                    valid_referers none blocked server_names
+                                   *.example.com example.* www.example.org/galleries/   #允许的主机访问
+                                   ~\.google\.;                                         #允许google访问，主要是google的爬虫
+
+                    if ($invalid_referer) {
+                        return 403;
+                    }
+
+                    #当直接通过浏览器访问的时候表现为none，应该允许访问
+                    #只要是valid_referers匹配不到的都是invalid_referer，拒绝访问，返回403
+
+                    第一步：定义合规的引用
+                        valid_referers none | blocked | server_names | string ...;
+                    第二步：拒绝不合规的引用
+
+                8、URL rewrite  [需要使用到pcre，所以需要安装pcre，注意点要注意]
+                    使用场景：
+                        将老域名跳转到新域名
+                    rewrite regex replacement [flag];
+
+                    示例：
+                    location /download/ {
+                        root    /www/b.org;
+                        rewrite ^/images/(.*)$  /imgs/$1 last;      #如果项目修改图片目录被修改，使用此功能
+                        rewrite ^/imgs/(.*)$  /images/$1;      #如果写成此死循环，则用last标记无效，还是会死循环，此时需要用到break
+                    }
+
+                    last：一旦被当前规则匹配并重写后立即停止检查后续的其他rewrite的规则，而通过重写后的规则重新发起请求
+                    break：一旦被当前规则匹配并重写后立即停止检查后续的其他rewrite的规则，而后继续由nginx进行后续操作；
+                    redirect:返回302临时重定向；
+                    permanent:返回301永久重定向；
+
+                    死循环示例：应该严格检查自己的重写规则，避免死循环，nginx最多循环10次，超出之后会返回500错误：
+                    location /download/ {
+                        root    /www/b.org;
+                        rewrite ^(/download/.*)/media/(.*)\..*$  $1/media/$2.mp3 last;      #如果写成此死循环，则用last标记无效，还是会死循环，此时需要用到break
+                    }
+
+                    特别注意：一般将rewrite卸载location中的时候都使用break标志，或者将rewrite写在if上下文中进行判断：
+
+                    rewrite_log     on|off
+                        是否把重写过程记录在错误日志中，默认为notice级别；默认为off
+
+
+
+
+
+
+
+
+
+
+
 
 
 
