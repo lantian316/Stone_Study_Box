@@ -1,0 +1,6 @@
+yum -y groupinstall "Development Tools" "Server Platform Development"
+
+yum -y install pcre-devel
+
+
+

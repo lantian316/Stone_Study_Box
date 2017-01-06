@@ -44,3 +44,219 @@ ngxin特性：
         邮件模块
         第三方扩展模块
 
+    安装方法：
+        编译安装
+        rpm包安装
+            epel源
+
+
+
+    Nginx的配置文件：
+        main(核心)配置段
+        各上下配置段(各模块配置段)
+        http {
+
+        }
+
+        mail {
+
+        }
+
+        配置参数需要以分号结尾
+        所有以#号开头的都是注释
+        语法格式：
+            参数名     值1  [值2 ...];
+
+
+            还支持使用变量：
+                模块内置变量
+                用户自定义变量
+                    set var_name value
+
+        Nginx基本核心配置的类别：
+            用于调试、定位问题
+            正常运行的必备配置
+            优化性能的配置
+            事件类的配置
+
+        worker进程应该以普通用户身份运行：nginx用户、nginx组
+
+            HTTP的方法：GET、HEAD、POST、PUT、DELETE、OPTIONS、TRACE
+
+
+        nginx的配置
+            正常运行的必备配置：
+                1、user username [groupname];
+                    指定运行worker进程的用户和组
+                2、pid        /var/run/nginx.pid;
+                    指定nginx的pid文件路径
+                3、worker_rlimit_nofile    9999;
+                    指定一个worker进程所能够打开的最大文件句柄数
+                4、worker_rlimit_sigpending    Number;
+                    设定每个用户能够发往worker进程的信号的数量
+
+            优化性能相关的配置：
+                1、worker_processes  Number;
+                    worker进程的个数；通常其数值应该为CPU的物理核心数减1或者减2；
+                2、worker_cpu_affinity cpumask   ...;
+                    0000
+                    0001
+                    0010
+                    1000
+
+                    比如系统有8核心，绑定worker进程到6个核心上，留下两个核心主要运行系统进程
+                    worker_processes  6;
+                    worker_cpu_affinity 00000001 00000010 00000100 00001000 00010000 00100000
+                    保证这6个worker进程都单独在所在的cpu上运行，但不保证这6个cpu会运行系统进程。
+
+                3、ssl_engine device;
+                    在存在ssl硬件加速器的服务器上，指定所使用的ssl硬件加速设备
+
+                4、timer_resolution 100ms;
+                    每次内核事件调用返回时，都会使用gettimeofday()来获取当前系统时间用来更新nginx缓存时钟；
+                    timer_resolution用于定义每隔多久才会由gettimeofday()更新一次缓存时钟；
+                    x86_64架构的系统上，gettimeofday()代价已经很小，可以忽略此项配置
+
+                5、worker_priority nice;
+                    nice为-20至19之间的值；值越小优先级越高。
+
+            事件相关的配置
+                1、accept_mutex    [on|off]
+                    是否打开Nginx的负载均衡锁；此锁能够让多个worker进程轮流的、序列化的与新的客户端建立连接
+                    而通常当一个worker进程的负载达到其上线的7/8,master就尽可能不再将请求调度至此worker
+
+                2、lock_file /path/to/lock_file;
+                    lock锁文件
+
+                3、accept_mutex_delay    #ms;
+                    accept锁模式中，一个worker进程为取得accept锁的等待时长；如果某worker进程在某次试图取得锁时失败了，至少要等待#ms才能再一次请求锁；
+
+                4、use [epoll|rtsig|select|poll];
+                    定义使用的时间模型，建议让nginx自动选择；
+
+                5、worker_connections    #;
+                    每个worker能够并发响应最大请求数；
+
+            用于调试、定位问题：只调试nginx时使用
+                1、daemon    [on|off];
+                    是否让nginx运行在后台；调试的时候选off，使得所有信息直接输出到控制台，默认为on
+
+                2、master_process    on|off;
+                    是否以master/worker模式运行nginx：默认为on，调试时可设置off以方便追踪；
+
+                3、error_log /path/to/error_log  level;
+                    错误日志文件及其级别；默认为error级别，调试时可以使用debug级别，但要求叜编译时必须使用--with-debug启用debug功能
+
+            nginx的http web功能
+                必须使用虚拟主机来配置站点，每个虚拟主机使用一个server{}段配置：
+                    server{
+
+                    }
+
+                非虚拟主机的配置或公共配置，需要定义在server之外，http之内：
+                    http{
+                        directive value;
+                        ...
+
+                        server {
+
+                        }
+                        server {
+
+                        }
+                        ...
+                    }
+
+                1、server {}
+                    定义一个虚拟主机；nginx支持使用基于主机名或IP的虚拟主机；
+                2、listen
+                    listen address[:port];
+                    listen port;
+                    listen unix:socker_file_path;
+
+                    default_server:
+                        定义此server为http中默认的server;如果所有的server中没有任何一个使用此参数，那么第一个server即为默认server
+
+                    rcvbuf=SIZE：接收缓冲大小
+                    sndbuf=SIZE：发送缓冲大小
+                    ssl：https server；
+
+                3、server_name [...];
+                    server_name可以跟多个主机名，使用空格隔开即可。名称中可以使用通配符(通常以~开头)
+                    当nginx收到一个请求时，会去除其首部的server的值，而后跟众server_name进行比较；
+                        (1)、先做精确匹配；     www.linuxnb.com
+                        (2)、左侧通配符匹配；    *.linuxnb.com
+                        (3)、右侧通配符匹配；    www.abc.com,www.*
+                        (4)、正则表达式匹配；    ~^.*\.linuxnb\.com$
+
+                4、server_name_hash_bucket_size    32|64|128;
+                    为了实现快速主机查找，nginx使用hash表来保存主机名；
+
+                5、location功能：允许根据用户请求的URI来匹配指定的各location以进行方位配置，匹配到时，将被location块中的配置所处理
+                    1、location [ = | ~ | ~* | ^~ ] uri { ... }
+                    2、location @name { ... }
+                        比如：http://www.linuxnb.com/images/logo.gif
+
+                        = ：精确匹配
+                        ~ ：正则表达式模式匹配，匹配时区分字符大小写
+                        ~* ：正则表达式模式匹配，匹配时忽略字符大小写
+                        ^~ : URI前半部分匹配，不检查正则表达式
+
+                            http://www.linuxnb.com/index.html
+                            http://www.linuxnb.com/
+                            http://www.linuxnb.com/documents/index.html
+                            http://www.linuxnb.com/images/index.html
+                            http://www.linuxnb.com/images/a.jpg
+
+                            匹配优先级：
+                                字符字面量最精确匹配、正则表达式检索(由第一个匹配到所处理)、按字符字面量
+
+                6、文件路径定义
+                    1、root  path;
+                        设置web资源的路径(网页目录路径),用于指定请求的根文档目录;
+                    2、alias path;
+                        只能用于location中，用于路径别名；
+                    3、index file ...;
+                        定义默认页面，可以跟多个值，自左而右进行匹配
+                    4、error_page code ... [=[response]] uri;
+                        当对于某个请求返回错误时，如果匹配上了error_page指令中设定的code，则重定向到新的URI中。
+                        错误页面重定向。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
