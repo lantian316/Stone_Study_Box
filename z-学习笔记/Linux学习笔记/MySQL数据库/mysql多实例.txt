@@ -1,0 +1,119 @@
+[mysqld_multi]
+mysqld = /usr/local/mysql/bin/mysqld_safe
+mysqladmin = /usr/local/mysql/bin/mysqladmin
+user = admin
+password = 123456
+
+[mysqld3306]
+socket = /tmp/mysql_3306.sock
+port = 3306
+pid-file = /tmp/mysql_3306.pid
+datadir = /data/dbdata_3306
+user = mysql
+basedir = /usr/local/mysql
+
+[mysqld3307]
+socket = /tmp/mysql_3307.sock
+port = 3307
+pid-file = /tmp/mysql_3307.pid
+datadir = /data/dbdata_3307
+user = mysql
+basedir = /usr/local/mysql
+
+[mysqld3308]
+socket = /tmp/mysql_3308.sock
+port = 3308
+pid-file = /tmp/mysql_3308.pid
+datadir = /data/dbdata_3308
+user = mysql
+basedir = /usr/local/mysql
+
+[mysqldump]
+quick
+max_allowed_packet = 256M
+[mysql]
+no-auto-rehash
+prompt=\\u@\\d \\R:\\m>
+[myisamchk]
+key_buffer_size = 512M
+sort_buffer_size = 512M
+read_buffer = 8M
+write_buffer = 8M
+[mysqlhotcopy]
+interactive-timeout
+[mysqld_safe]
+open-files-limit = 8192
+
+
+--------------------------------------
+
+一、初始化数据库
+    /usr/local/mysql/scripts/mysql_install_db --basedir=/usr/local/mysql --datadir=/data/dbdata_3306 --user=mysql
+	/usr/local/mysql/scripts/mysql_install_db --basedir=/usr/local/mysql --datadir=/data/dbdata_3307 --user=mysql
+	/usr/local/mysql/scripts/mysql_install_db --basedir=/usr/local/mysql --datadir=/data/dbdata_3308 --user=mysql
+
+二、编写配置文件(请先确认你机器上到底是哪个路径下的配置文件在起作用)
+	配置文件在上面
+
+三、启动mysqld实例
+	mysqld_multi start 3306
+	mysqld_multi start 3307
+	mysqld_multi start 3308
+
+	查看所有实例运行状态
+	mysqld_multi report
+
+	netstat -ultnp
+
+
+四、给三个实例都添加一个数据库账号，并赋予SHUTDOWN权限，用来关闭实例
+	注意：这里权限不能给all privileges，否则无法关机。
+		  all privileges 和 SHUTDOWN 可能不是一类权限。
+
+		/usr/local/mysql/bin/mysql -uroot -p -S /tmp/mysql_3306.sock
+		mysql> GRANT SHUTDOWN ON *.* TO 'admin'@'localhost' IDENTIFIED BY '123456';
+		mysql> flush privileges;
+		/usr/local/mysql/bin/mysql -uroot -p -S /tmp/mysql_3307.sock
+		mysql> GRANT SHUTDOWN ON *.* TO 'admin'@'localhost' IDENTIFIED BY '123456';
+		mysql> flush privileges;
+		/usr/local/mysql/bin/mysql -uroot -p -S /tmp/mysql_3308.sock
+		mysql> GRANT SHUTDOWN ON *.* TO 'admin'@'localhost' IDENTIFIED BY '123456';
+		mysql> flush privileges;
+
+    但是好像还是不能关闭，不知道什么原因。
+
+五、修改完毕之后现在就可以关闭单个实例了。
+	mysqld_multi stop 3306
+	mysqld_multi stop 3307
+	mysqld_multi stop 3308
+
+	mysqld_multi report
+
+	netstat -ultnp
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
