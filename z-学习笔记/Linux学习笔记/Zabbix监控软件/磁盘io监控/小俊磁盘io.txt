@@ -1,0 +1,9 @@
+UserParameter=custom.io.read[*],cat /proc/diskstats | grep $1 | head -1 | awk '{print $$6}'
+UserParameter=custom.io.write[*],cat /proc/diskstats | grep $1 | head -1 | awk '{print $$10}'
+UserParameter=custom.ip[*],who | awk '{print $$5}' | sed 's/(//g' | sed 's/)//g'
+UserParameter=custom.tcp[*],netstat -nat|grep ESTABLISHED|wc -l
+UserParameter=custom.thread[*],pstree -p|wc -l
+UserParameter=custom.user[*],who | awk '{print $$1}'
+UserParameter=custom.mysql.connected[*],mysql -uroot -p123456 -e "show status like 'Threads_connected'" 2>/dev/null|sed -n 2p|awk {'print $$2'}
+UserParameter=custom.mysql.status[*],mysqladmin -uroot -p123456 ping 2>/dev/null | grep -c alive
+UserParameter=custom.swap.usage[*],echo "`free -m|grep Swap|awk '{print $$3}'`"/"`free -m|grep Swap|awk '{print $$2}'`"|bc

@@ -1,0 +1,2 @@
+查看tcp连接侦听状态
+netstat -nat| awk '{print awk $NF}'|sort|uniq -c|sort -n

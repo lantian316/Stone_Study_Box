@@ -1,0 +1,1 @@
+au BufRead,BufNewFile /etc/nginx/*,/home/nginx/nginx1102/conf/* if &ft == '' | setfiletype nginx | endif
