@@ -1,0 +1,353 @@
+001.
+    001-001.yum安装
+	    rpm -qa git
+	    yum install git -y
+	    useradd git
+	    ssh-keygen -t rsa
+	    touch /home/git/.ssh/authorized_keys
+
+	001-002.源码编译安装
+	    安装依赖的包    :  yum -y install curl-devel expat-devel gettext-devel openssl-devel zlib-devel gcc perl-ExtUtils-MakeMaker
+	    下载git源码包   :  cd /usr/local/src/ ; wget http://download.linuxnb.com/linux/git-2.10.0.tar.gz
+	    解压下载的包    ： tar -zxf git-2.10.0.tar.gz
+	                    ： cd git-2.10.0
+	    将其安装在“/usr/local/git”目录下。
+	    make prefix=/usr/local/git all
+	    make prefix=/usr/local/git install
+
+	    此时你如果使用git --version 查看git版本的话，发现git仍然是1.8.1版本。这是因为它默认使用了"/usr/bin"下的git。
+
+        你可以用下面的命令查看git所在的路径：
+        whereis git
+        git: /usr/bin/git /usr/local/git /usr/share/man/man1/git.1.gz
+
+        我们要把编译安装的git路径放到环境变量里，让它替换"/usr/bin"下的git。为此我们可以修改“/etc/profile”文件（或者/etc/bashrc文件）。
+        vim /etc/profile
+        然后在文件的最后一行，添加下面的内容，然后保存退出。
+        export PATH=/usr/local/git/bin:$PATH
+        或者echo 'export PATH=/usr/local/git/bin:$PATH' >> /etc/profile
+        source /etc/profile          #使用source命令应用修改。
+        然后再次使用git --version 查看git版本，发现输出2.10.0，表明安装成功。
+
+002.配置
+	git config --global user.name  "Your Name"
+	git config --global user.email "email@example.com"
+
+003.创建版本库
+	mkdir /gitstudy/learngit
+	cd /gitstudy/learngit
+	git init
+	或者git init --bare /gitstudy/learngit
+
+004.提交文件
+    编写一个文件/gitstudy/learngit/readme.txt
+    内容如下：
+    Git is a version control system.
+    Git is free software.
+    ----------------------------
+    先来看两个概念
+    工作区：就是当前目录，比如我这里就是/gitstudy/learngit目录，readme.txt就在工作区里面
+    版本库：版本库包含两个部分，分别是stage和master(唯一分支)
+            stage：git add FILENAME.TXT 之后readme.txt文件就从工作区添加到了版本库的stage(不算真正提交并生成版本号)
+            master：git commit -m "注释" 此命令执行之后就从stage提交到了master(唯一分支)(到这一步完成才算提交成功并且会生成一个版本号，也就是commit id)
+                    另外还有分支和HEAD的概念，暂时还不清楚。
+
+	git add file1.txt           #将文件从工作区添加到仓库{也就是版本库(隐藏目录.git)里面的stage[暂存区]}
+	git add file2.txt file3.txt #添加多个文件到仓库(缓存区)
+	git commit -m "注释"        #将缓存区已经add的文件提交到版本库
+
+005.查看状态
+	git status					# 查看工作区域的状态
+	git diff 1.txt				# 如果git status告诉你有文件被修改过, 用git diff可以查看修改内容
+	git log						# 查看历史版本信息
+	git log --pretty=oneline	# 查看历史版本信息,信息更简洁
+	git reflog					# 查看命令历史(以免版本回退过头之后再次回到未来版本：
+	                            # 比如现在有3个版本分别为1、2和3，当你git commit到3之后发现3有问题，现在需要回退版本，但是又一不小心回退过头，回到了版本1，
+	                            # 接下来怎么办呢，现在你要回到版本2，因为版本2比版本1新，这个时候就用这个命令查看命令历史，并找出版本2的commit id(版本号)，也就是那一长串乱码--SHA1计算来的)
+
+006.版本回退
+    git reset                   # 撤销git add a b c，将暂存区abc三个文件的git add全部清掉
+    git reset HEAD FILENAME     # 撤销git add FILENAME单个文件，将暂存区里的FILENAME文件清掉
+	git reset --hard HEAD^		# 回到上一个版本
+	git reset --hard HEAD^^		# 回到上两个版本
+	git reset --hard HEAD~100	# 回到上100个版本
+	git reset --hard 71d765e	# 退回到指定版本,取ID的前几位即可,会自动查找,一般推荐六到七位更好. "71d765e"
+	git checkout -- test.txt	# 如果工作区域的文件有修改, 将工作区的文件恢复到上一个版本, 放弃工作区域文件的修改
+	git checkout -- test.txt	# 如果工作区域的文件已经添加到暂存区域后并且再次修改, 将恢复到添加暂存区域的第一时间, 放弃二次修改
+	git reset HEAD test.txt		# 将暂时区的文件踢到工作区, 适合场景如下:
+								  test.txt原文件内容是111111, 修改后变成111111 222222并且已经提到至暂时存. 使用gti reset HEAD test.txt将暂存区的文件踢出到工作区, 再使用git checkout -- test.txt即可恢复至111111状态
+
+007.删除版本库中的文件
+	touch test.txt
+	echo "111111" >> test.txt
+	git add test.txt			# 将文件添加到暂时存
+	git commit -m "rm test.txt"	# 提交到版本库
+	rm -rf test.txt				# 删除工作区域的文件(不会删除隐藏目录.git)
+	git rm test.txt				# 删除版本库中的文件
+
+	命令git checkout -- readme.txt意思就是，把readme.txt文件在工作区的修改全部撤销，这里有两种情况：
+    一种是readme.txt自修改后还没有被放到暂存区，现在，撤销修改就回到和版本库一模一样的状态；(和master里面最近的一个版本一样)
+    一种是readme.txt已经添加到暂存区后，又作了修改，现在，撤销修改就回到添加到暂存区后的状态。(和暂存区里面一样)
+    总之，就是让这个文件回到最近一次git commit或git add时的状态。
+
+
+008.添加远程仓库(从本地库复制到远程空库)
+    ssh-keygen -t rsa -C "lantian316@163.com"    #用户主目录里找到.ssh目录，里面有id_rsa和id_rsa.pub两个文件
+    第2步：登陆GitHub，打开“Account settings”，“SSH Keys”页面：
+    然后，点“Add SSH Key”，填上任意Title，在Key文本框里粘贴id_rsa.pub文件的内容：
+
+    首先，登陆GitHub，然后，在右上角找到“Create a new repo”按钮，创建一个新的仓库：
+    在Repository name填入learngit，其他保持默认设置，点击“Create repository”按钮，就成功地创建了一个新的Git仓库：
+
+
+
+[    网站页面提示如下，也可以认为是命令例子：
+            https://github.com/lantian316/learngit.git
+
+            …or create a new repository on the command line
+            echo "# learngit" >> README.md
+            git init
+            git add README.md
+            git commit -m "first commit"
+            git remote add origin https://github.com/lantian316/learngit.git
+            git push -u origin master
+
+            …or push an existing repository from the command line
+            git remote add origin https://github.com/lantian316/learngit.git
+            git push -u origin master
+]
+
+    git remote add origin git@github.com:lantian316/learngit.git
+    添加后，远程库的名字就是origin，这是Git默认的叫法，也可以改成别的
+    git push -u origin master
+    由于远程库是空的，我们第一次推送master分支时，加上了-u参数，Git不但会把本地的master分支内容推送的远程新的master分支，
+    还会把本地的master分支和远程的master分支关联起来，在以后的推送或者拉取时就可以简化命令。
+
+    本地修改提交之后就可以执行以下命令提交到github
+    git push origin master
+
+    关联一个远程库：
+    git remote add origin git@server-name:path/repo-name.git
+    关联后，使用命令
+    git push -u origin master第一次推送master分支的所有内容
+    此后，每次本地提交后，只要有必要，就可以使用命令
+    git push origin master推送最新修改
+
+009.从远程库克隆(从远程库复制到本地)[自动建立空库并从远程拉取文件到本地]
+    上次我们讲了先有本地库，后有远程库的时候，如何关联远程库。
+    现在，假设我们从零开发，那么最好的方式是先创建远程库，然后，从远程库克隆。
+    首先，登陆GitHub，创建一个新的仓库，名字叫gitskills：
+
+    git clone git@github.com:lantian316/gitskills.git
+
+    小结：
+    要克隆一个仓库，首先必须知道仓库的地址，然后使用git clone命令克隆。
+    Git支持多种协议，包括https，但通过ssh支持的原生git协议速度最快。
+
+010.创建分支
+    首先，我们创建dev分支，然后切换到dev分支：
+    $ git checkout -b dev
+    Switched to a new branch 'dev'
+
+    git checkout命令加上-b参数表示创建并切换，相当于以下两条命令：
+    $ git branch dev
+    $ git checkout dev
+    Switched to branch 'dev'
+    然后，用git branch命令查看当前分支：
+
+    $ git branch
+    * dev
+      master
+    git branch命令会列出所有分支，当前分支前面会标一个*号。
+
+    echo "Creating a new branch is quick." >> readme.txt
+    git add readme.txt
+    git commit -m "branch test"
+
+    现在，dev分支的工作完成，我们就可以切换回master分支：
+    git checkout master
+    Switched to branch 'master'
+    切换回master分支后，再查看一个readme.txt文件，刚才添加的内容不见了！因为那个提交是在dev分支上，而master分支此刻的提交点并没有变
+
+
+011.合并分支
+    git merge dev        # 合并分支，将dev分支合并到master分支
+    git branch -d dev    # 删除dev分支
+
+    git branch                  查看分支：
+    git branch <name>           创建分支：
+    git checkout <name>         切换分支：
+    git checkout -b <name>      创建+切换分支：
+    git merge <name>            合并某分支到当前分支：
+    git branch -d <name>        删除分支：
+
+012.解决冲突
+    git checkout -b feature1       准备新的feature1分支，继续我们的新分支开发：
+    Creating a new branch is quick AND simple.     修改readme.txt最后一行，改为：
+
+    在feature1分支上提交：
+    $ git add readme.txt
+    $ git commit -m "AND simple"
+
+    切换到master分支：
+    $ git checkout master
+    Switched to branch 'master'
+    Your branch is ahead of 'origin/master' by 1 commit.
+    Git还会自动提示我们当前master分支比远程的master分支要超前1个提交。
+
+    在master分支上把readme.txt文件的最后一行改为：
+    Creating a new branch is quick & simple.
+
+    $ git add readme.txt
+    $ git commit -m "& simple"
+
+    $ git merge feature1
+    Auto-merging readme.txt
+    CONFLICT (content): Merge conflict in readme.txt
+    Automatic merge failed; fix conflicts and then commit the result.
+
+    git status     也可以告诉我们冲突的文件：
+    我们可以直接查看readme.txt的内容：
+    Git is a distributed version control system.
+    Git is free software distributed under the GPL.
+    Git has a mutable index called stage.
+    Git tracks changes of files.
+    <<<<<<< HEAD
+    Creating a new branch is quick & simple.
+    =======
+    Creating a new branch is quick AND simple.
+    >>>>>>> feature1
+
+    Git用<<<<<<<，=======，>>>>>>>标记出不同分支的内容，我们修改如下后保存：
+    Creating a new branch is quick and simple.
+
+    $ git add readme.txt
+    $ git commit -m "conflict fixed"
+    [master 59bc1cb] conflict fixed
+
+    用带参数的git log也可以看到分支的合并情况：
+    $ git log --graph --pretty=oneline --abbrev-commit
+    *   59bc1cb conflict fixed
+    |\
+    | * 75a857c AND simple
+    * | 400b400 & simple
+    |/
+    * fec145a branch test
+    ...
+
+    git branch -d feature1       删除feature1分支：
+
+    用git log --graph命令可以看到分支合并图。
+
+
+013.分支管理策略
+    通常，合并分支时，如果可能，Git会用Fast forward模式，但这种模式下，删除分支后，会丢掉分支信息。
+    如果要强制禁用Fast forward模式，Git就会在merge时生成一个新的commit，这样，从分支历史上就可以看出分支信息。
+    --no-ff方式的git merge    表示禁用Fast forward
+
+    实例：
+    git checkout -b dev
+    echo "use git merge --no-ff" >> readme.txt
+    git add readme.txt
+    git commit -m "add merge"
+    git checkout master
+    git merge --no-ff -m "merge with no-ff" dev
+    [root@localhost learngit]# git log --graph --pretty=oneline --abbrev-commit
+    *   bf539b0 merge with no-ff
+    |\
+    | * c384688 add merge
+    |/
+    *   5191ba7 conflict fixed
+    |\
+    | * eb1204a And simple
+    * | 2c40c57 & simple
+    |/
+    * 8fb36ce branch test
+    * d861ed5 add remote test
+    * 42c566e del test.txt
+    * ad283ba add test.txt
+    * 1da77b2 test1
+    * c154fe8 zuihou yici
+    * 8117373 add distributed
+    * 177dc92 write a readme file
+
+013.Bug分支
+    *dev
+     master
+
+    当前正在dev上开发，发现master上有紧急bug需要处理
+    git stash                       # stash功能，可以把当前工作现场“储藏”起来，等以后恢复现场后继续工作：
+    git checkout master
+    git checkout -b bug-101           因为master上有bug，所以在master上面新建bug101分支，并切换到bug101分支
+       在bug分支上修改bug
+    git add readme.txt
+    git commit -m "fix bug 101"
+    git checkout master
+    git merge --no-ff -m "merged bug fix 101" bug-101    #将bug101分支合并到master分支，并保留提交记录
+    git branch -d bug-101                                #删除bug101分支（Fast forward模式，删除分支后，会丢掉分支信息。所以禁用此模式就可以合并之后还保留分支提交信息[保留commit_id]）
+
+    git stash list              # 查看之前储藏的工作现场
+        stash@{0}: WIP on dev: 6224937 add merge
+
+    git stash apply             # 恢复之前储藏的工作现场
+    git stash drop              # 删除之前的工作现场的储藏
+
+    git stash pop               # 恢复的同时把stash内容也删了：
+
+    如果有多次stash，恢复的时候，先用git stash list查看，然后恢复指定的stash，用命令：git stash apply stash@{0}，规则是最后进入的会排在最前。
+        stash@{0}: WIP on master: 3965f88 merged bug fix 101
+        stash@{1}: WIP on master: 3965f88 merged bug fix 101
+
+    ************加入dev是之前master上分出来的分支，那么此时在dev上也是存在那个bug的，解决方案如下(现在还不懂，待摸索学习)
+                切换到dev,   git cherry-pick commit_id
+                commit_id就是master上面修复bug的提交id
+
+014.Feature分支
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+1.RSAAuthentication yes
+2.PubkeyAuthentication yes
+3.AuthorizedKeysFile  .ssh/authorized_keys
+
+caiya07
+qq111111

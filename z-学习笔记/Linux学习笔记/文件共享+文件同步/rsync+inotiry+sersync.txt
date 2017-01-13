@@ -1,0 +1,489 @@
+rsync(远程同步)
+
+rsync (Remote sync)
+
+备份：
+完全备份：
+增量/差异备份：
+
+scp命令
+	区别：当文件数据很大的时候：
+		scp 无法备份大量数据，特点：先统计信息，大小，空间，文件数量等，像windows复制。
+		rsync  边复制，边比较，边统计。
+
+rsync 好处：
+有点：支持增量备份。
+		选择性的保持：符号链接，硬链接，文件属性，权限和时间等。
+		传输前执行压缩。适用于异地备份，镜像服务器等应用。
+		使用ssh作为传输端口。sftp，ssh
+
+端口：873
+模式：C/S    如果直接使用命令rsync，就是点到点传输。
+
+官网地址：http://rsync.samba.org
+
+在远程同步任务中，
+发起端:负责发起rsync同步操作的客户机称为发起端。
+备份源:负责响应来自客户机的rsync同步操作请求的服务器称为备份源。
+
+首先认识同步数据的方式：
+	推：一台主机负责把数据传给其他主机。服务器开销大。适合后端服务器比较少。
+	拉：所有主机定时去找一个主机拉取数据。可能会导致数据同步缓慢。
+
+设计数据同步模式：
+	1   2    3     4    5    6
+
+		7               8
+
+				9
+123定时从7上面拉，
+456定时从8上面拉，
+9定时往7、8上面推
+
+
+安装rsync 端口873
+rsync工作在xinetd下。
+rpm -qf `which rsync`
+安装xinetd和rsync
+vim /etc/xinetd.d/rsync
+disable=yes
+
+
+
+rsync命令的基本用法：
+格式：rsync  [选项]  源文件   目标文件
+和scp用法相似
+常见的选项：
+-a,--archive(存档) 归档模式，表示以递归的方式传输文件，并且保持文件属性，等于同时加了参数-rlptgoD
+-r,-recursive  对子目录以递归模式处理
+-l,--links 表示拷贝连接文件
+-p,--perms  表示保持文件原有权限
+-t,--times  表示保持文件原有时间
+-g,--group  表示保持文件原有属组
+-o,--owner  表示保持原有文件属主
+-D,--devices 表示块设备文件信息
+-z,--compress 表示压缩传输
+-H,表示硬链接文件
+-A, 保留ACL属性信息
+-P,  显示传输进度
+-u,--update 仅仅进行更新，也就是跳过所有已经存在于目标位置，并且文件时间晚于要备份的文件(不覆盖更新的文件)
+--port=PORT 指定其他的rsync服务端口873
+--delete  删除那些目标位置有 而原始位置没有的文件
+	列子：目录/web:a.txt          back/没有a.txt
+--password-file=FILE 从FILE中得到密码
+--bwlimit=KBPS  限制I/O带宽，Kbytes/second
+--filter  "- 文件名"  需要过滤的文件
+--exclude=   :需要过滤的文件
+-v 显示同步过程的相信信息。
+
+例子一：
+备份xuegod63的/var/www/html目录到xuegod64的/web-bak.
+xuegod63     服务器   63
+xuegod64     客户端   64
+
+在63上操作
+useradd rget1
+echo '123456' | passwd --stdin rget1
+useradd rput1
+echo '123456' | passwd --stdin rput1
+
+setfacl -R -m user:rput1:rwx /var/www/html/
+#指定rput1用户可以对目录/var/www/html/拥有读写权限
+setfacl -R -m default:rput1:rwx /var/www/html/
+#设置默认情况先rput1用户可以对/var/www/html/下所有文件拥有可读写权限，后期新建的用户也同样拥有权限
+getfacl /var/www/html/   #查看权限
+
+setfacl -R -m user:rget1:rwx /var/www/html/
+setfacl -R -m default:rget1:rwx /var/www/html/
+
+
+在64上操作:同步数据
+rsync -azP --delete rget1@192.168.1.63:/var/www/html/ /web-back/
+报错：
+sent 306 bytes received 148230 bytes 17006.55 bytes/sec
+total size is 255182  speedup is 1.72
+rsync:send_files failed to open "/var/www/html/grub/grub.conf": Permission denied(13)
+此问题是该文件权限不够，重新给足权限即可。
+
+
+
+
+
+例子二:使用ssh秘钥实现无交互备份
+在64上操作
+ssh-keygen  然后一直回车即可。然后拷贝秘钥
+ssh-copy-id rget1@192.168.1.63  然后输入密码
+
+测试脚本
+rsync -azP --delete rget1@192.168.1.63:/var/www/html/ /web-back/
+
+写脚本，测试定时任务等。
+
+
+
+例子三:
+配置rsync服务器及需要备份的目录，不使用系统用户进行备份。
+需要自己创建自己的配置文件：/etc/rsyncd.conf  ; 创建备份账户。最后把rsync以守护进程运行。
+
+配置文件: /etc/rsyncd.conf  整体分两部分:
+全局参数:对于rsync服务器生效。如果模块参数和全局参数冲突，针对冲突模块的模块参数生效
+模块参数:定义rsync输出的目录的参数
+
+在63上操作
+vim /etc/rsyncd.conf
+#全局参数
+uid=nobody       #运行进程的身份
+gid=nobody		 #运行进程的组
+address = 192.168.1.63    #监听ip地址
+port=873                  #监听端口
+host allow=192.168.1.64 192.168.0.25  #允许同步的客户端ip地址
+		#单个ip地址，例如：192.168.0.1,  多个ip或网段需要用空格隔开
+		#整个网段，例如：192.168.0.0/24  ,也可以是192.168.0.0/255.255.255.0
+		#"*"则表示所有，默认是允许所有主机连接。
+#hosts deny=0.0.0.0/32
+use chroot=yes  #锁定家目录。如果rsync被黑了。黑河无法在rsync运行的家目录之外创建修改文件，该选项设置为yes
+max connections=5      #最大连接数
+pid file=/var/run/rsyncd.pid     #pid 文件。存放进程ID。自动生成
+lock file=/var/run/rsync.locak   #指定支持max connections参数的锁文件。
+log file=/var/log/rsyncd.log     #日志
+motd file=/etc/rsyncd.motd       #客户端登录后弹出的信息，需要创建。
+
+
+#模块参数
+[wwwroot]                   #共享模块名
+path=/var/www/html          #供备份的路径
+comment=rsync wwwroot of www.linuxnb.com        #描述
+read only=yes                                   #以只读的方式 提供备份
+list=yes                            #允许查看模块信息
+auth users=backuper                 #指定备份的用户，和系统用户无关
+secrets file=/etc/rsync.passwd      #指定存放用户和密码的文件。格式：  用户名:密码
+
+
+
+#创建提示信息文件。
+echo "welcome to backup server" > /etc/rsyncd.motd
+echo "backuper:pwd123" > /etc/rsync.passwd
+
+修改密码文件权限(600或者700)
+chmod 600 /etc/rsync.passwd
+
+重启xinetd服务
+service xinetd restart
+
+测试备份：(在64上操作)
+语法：
+rsync  选项   用户名@备份源服务器IP::共享模块名    目标目录
+rsync -azP backuper@192.168.1.63::wwwroot /web-back/
+
+实现无交互脚本，备份数据
+修改变量:RSYNC_PASSWORD
+RSYNC_PASSWORD="pwd123"
+然后再执行就不需要密码了   rsync -azP backuper@192.168.1.63::wwwroot /web-back/
+
+
+配置rsync+inotify实现实时同步
+linux内核从2.6.13版本开始提供inotify通知接口，用来监控文件系统的各种变化情况，
+如文件存取，删除、移动等。利用这一机制，可以非常方便的实现文件异动告警、增量备份，
+并针对目录或文件的变化及时作出响应。
+
+使用rsync工具与inotify机制相结合，可以实现触发式备份(实时同步),只要原始位置的文档发生变化，
+则立即启动增量备份操作，否则处于静态等待状态，这样一来，就避免了按固定周期备份存在的延迟性，
+周期过密等问题。
+
+inotify-tools-3.13.tar.gz
+下载地址：http://sourceforge.net/projects/inotify-tools/
+
+查看是否支持inotify，从2.6.13版本开始正式并入内核。
+ll /proc/sys/fs/inotify/
+max_queued_events           #表示监控事件队列
+max_user_instances          #表示最多监控实例数
+max_user_watches             #表示每个实例最多监控文件数(重要，需要改大一点)
+
+修改，文件最后添加以下内容
+vim /etc/sysctl.conf
+fs.inotify.max_queued_events=32768
+fs.inotify.max_user_instances=1024
+fs.inotify.max_user_watches=900000
+然后sysctl -p #使修改后的sysctl.conf文件生效，相当于重新加载此配置文件
+查看是否修改成功，查看值即可。
+cat /proc/sys/fs/inotify/max_user_watches
+会显示刚才修改的数字900000
+
+还可以直接修改
+echo "32768" > /proc/sys/fs/inotify/max_queued_events
+echo "1024" > /proc/sys/fs/inotify/max_user_instances
+echo "9000000" > /proc/sys/fs/inotify/max_user_watches
+
+
+安装inotify-tools
+安装inotify-tools后，将拥有安装inotifywait、inotifywatch辅助工具程序，从而来监控、汇总文件系统改动情况。
+tar -zxvf inotify-tools-3.13.tar.gz
+cd inotify-tools-3.13
+./configure
+make -j 4       #使用4个CPU一起编译
+make install
+
+测试：
+使用inotifywait命令监控网站/var/www/html发生的变化。
+然后在另一个终端/var/www/html目录下添加文件、移动文件，查看屏幕输出结果
+常用参数：
+	-e 用来指定要监控哪些事件。
+		这些事件包括:create创建、move移动、delete删除、modify修改文件内容、attrib属性更改
+	-m 表示持续监控
+	-r 表示递归整个目录
+	-q 表示简化输出信息。
+
+inotifywait -mrq -e create,move,delete,modify /var/www/html
+在另外一个终端登录，在/var/www/html目录进行相关的操作(新建文件，删除文件等)，然后回到原终端查看屏幕输出信息。
+
+使用inotifywait输出的监控结果中，每行记录中依次包括目录、事件、文件。据此可以识别变动情况。
+编写触发式同步脚本:
+xuegod64远程备份xuegod63，备份时不需要输入密码
+xuegod63发生变化后，直接将发生变化的数据同步到xuegod64，同步时不需要输入密码
+
+第一步：ssh不需要密码
+	在63上生成秘钥
+	ssh-keygen  然后一直回车即可。然后拷贝秘钥
+	ssh-copy-id root@192.168.1.64  然后输入密码
+
+第二步：搞定脚本(思路：只要见到变动或事件时，就执行rsync同步操作)
+#!/bin/bash
+SRC=/var/www/html/
+DST=root@192.168.1.64:/web-back
+inotifywait -mrq -e create,move,delete,modify $SRC | while read a b c
+do
+	/usr/bin/rsync -az --delete $SRC $DST
+done
+退出保存，命令为inotify_rsync.sh
+
+rsync -az --delete /var/www/html root@192.168.1.64:/web-back
+地址不加最后的斜杠表示把整个目录同步到web-back
+rsync -az --delete /var/www/html/ root@192.168.1.64:/web-back
+地址加最后的斜杠表示只同步目录下的所有文件到web-back
+
+cp /root/inotify_rsync.sh /opt/inotify_rsync.sh
+echo "inotify_rsync.sh &" >> /etc/rc.local
+
+
+
+扩展：
+	常见的开源软件下载网址:
+	SourceForge.net，又称SF.net，是开源软件开发者进行开发管理的集中式场所。
+	SourceForge.net是全球最大开源软件开发平台和仓库，网站建立的宗旨，就是为开源软件提供一个存储，
+		协作和发布的平台。SourceForge上拥有大量非常优秀的开源软件，事实上，这些软件完全可以代替
+		一些商业软件。
+
+
+
+
+
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+192.168.1.31  rsync客户端+inotify-tools，实时推送到服务器
+192.168.1.32  rsync服务器端，以守护进程形式启动rsync服务器
+192.168.1.33  rsync服务器端，以守护进程形式启动rsync服务器
+目标，当192.168.1.31文件目录有任何变化的时候，192.168.1.32和192.168.1.33能同步更新。
+
+1、在192.168.1.32和192.168.1.33上面安装rsync
+[root@localhost ~]# tar zxf rsync-3.1.2.tar.gz
+[root@localhost ~]# cd rsync-3.1.2
+[root@localhost rsync-3.1.2]# ./configure --prefix=/usr/local/rsync
+[root@localhost rsync-3.1.2]# make -j 4
+[root@localhost rsync-3.1.2]# make install
+/usr/local/inotify/bin/inotifywait -mrq --timefmt '%d/%m/%y %H:%M' --format '%T %w%f' -e create,delete,modify,close_write,attrib /data
+
+
+2、配置rsync server服务：
+
+[root@localhost rsync-3.1.2]# vim /etc/rsyncd.conf
+
+uid = rsync                            #运行RSYNC守护进程的用户
+gid = rsync                            #运行RSYNC守护进程的组
+use chroot = no                        #不使用chroot
+max connections=200                    # 最大连接数无限制
+timeout = 300
+log file=/var/log/rsyncd.log           #日志记录文件的存放位置
+pid file=/var/run/rsyncd.pid           #pid文件的存放位置
+lock file=/var/run/rsyncd.lock         #锁文件的存放位置
+
+[mukuaiming]                           #这里是认证的模块名，在client端需要指定
+path = /databak                        #需要做镜像的目录,不可缺少
+ignore errors
+read only = false                      # 非只读
+list = false                           #不允许列文件
+hosts allow = 192.168.1.1/24
+hosts deny = 0.0.0.0/32
+auth users = rsync_backup              #认证的用户名，如果没有这行则表明是匿名，此用户与系统无关
+secrets file = /etc/rsync.password     #密码和用户名对比表，密码文件自己生成
+
+
+[root@localhost rsync-3.1.2]# mkdir -p  /databak
+[root@localhost rsync-3.1.2]# useradd rsync -s /sbin/nologin
+[root@localhost rsync-3.1.2]# chown -R rsync:rsync /databak
+[root@localhost rsync-3.1.2]# echo "rsync_backup:mimach" > /etc/rsync.password
+[root@localhost rsync-3.1.2]# chmod 600 /etc/rsync.password
+[root@localhost rsync-3.1.2]# rsync --daemon
+也可以如下方式启动，指定配置文件rsync --daemon --config=/etc/rsyncd.conf
+也可以用xinetd集成启动方式
+chkconfig xined on
+chkconfig rsync on
+/etc/init.d/xinetd start
+[root@localhost rsync-3.1.2]# netstat -tlnup | grep 873
+[root@localhost rsync-3.1.2]# ps -aux | grep rsync
+
+
+2、配置客户端的rsync客户端
+客户端rsync只需要一个密码文件即可
+[root@localhost inotify-tools-3.13]# echo "mimach" > /etc/rsync.password
+[root@localhost inotify-tools-3.13]# chmod 600 /etc/rsync.password
+
+由于inotify特性需要Linux内核的支持，在安装inotify-tools前要先确认Linux系统内核是否达到了2.6.13以上，如果Linux内核低于2.6.13版本，就需要重新编译内核加入inotify的支持，也可以用如下方法判断，内核是否支持inotify：
+
+在192.168.1.31上面安装inotify-tools
+[root@localhost ~]# uname -r
+2.6.32-573.el6.x86_64
+[root@localhost ~]# ll /proc/sys/fs/inotify
+总用量 0
+-rw-r--r-- 1 root root 0 9月  10 15:37 max_queued_events
+-rw-r--r-- 1 root root 0 9月  10 15:37 max_user_instances
+-rw-r--r-- 1 root root 0 9月  10 15:37 max_user_watches
+如果有上面三项输出，表示系统已经默认支持inotify，
+
+修改，文件最后添加以下内容
+vim /etc/sysctl.conf
+fs.inotify.max_queued_events=32768
+fs.inotify.max_user_instances=1024
+fs.inotify.max_user_watches=900000
+然后sysctl -p #使修改后的sysctl.conf文件生效，相当于重新加载此配置文件
+查看是否修改成功，查看值即可。
+cat /proc/sys/fs/inotify/max_user_watches
+会显示刚才修改的数字900000
+
+还可以直接修改
+echo "32768" > /proc/sys/fs/inotify/max_queued_events
+echo "1024" > /proc/sys/fs/inotify/max_user_instances
+echo "9000000" > /proc/sys/fs/inotify/max_user_watches
+
+接着就可以开始安装inotify-tools了。
+可以到http://inotify-tools.sourceforge.net/下载相应的inotify-tools版本，然后开始编译安装：
+[root@localhost ~]# tar -zxf inotify-tools-3.13.tar.gz
+[root@localhost ~]# cd inotify-tools-3.13
+[root@localhost inotify-tools-3.13]# ./configure --prefix=/usr/local/inotify
+[root@localhost inotify-tools-3.13]# make -j 4
+[root@localhost inotify-tools-3.13]# make install
+
+inotify的实时同步脚本
+
+#!/bin/bash
+mydata="/data/"
+destination="mukuaiming"
+user="rsync_backup"
+rsync_passfile="/etc/rsync.password"
+inotify_home="/usr/local/inotify/bin/"
+
+${inotify_home}inotifywait -mr --timefmt '%d/%m/%y %H:%M' --format '%T %w%f' -e create,delete,modify,close_write,attrib $mydata | while read line
+	do
+		#/usr/bin/rsync -az --delete ${mydata} ${user}@192.168.1.32::${destination} --password-file=${rsync_passfile}
+		#/usr/bin/rsync -az --delete ${mydata} ${user}@192.168.1.33::${destination} --password-file=${rsync_passfile}
+		/usr/bin/rsync -az --delete /data/ rsync_backup@192.168.1.32::mukuaiming --password-file=/etc/rsync.password
+		/usr/bin/rsync -az --delete /data/ rsync_backup@192.168.1.33::mukuaiming --password-file=/etc/rsync.password
+	done
+exit 0
+
+
+不适用rsync命令，直接适用sersync，结合了inotify-tools+rsync
+下载sersync2.5.4_64bit_binary_stable_final.tar.gz
+安装sersync
+tar -zxf sersync2.5.4_64bit_binary_stable_final.tar.gz
+cd GNU-Linux-x86
+mkdir /usr/local/sersync
+mv ./GNU-Linux-x86/* /usr/local/sersync/
+cd /usr/local/sersync/
+cp -p confxml.xml confxml.xml.bak
+配置confxml.xml
+启动sersync
+/usr/local/sersync/sersync2 -r -d -o /usr/local/sersync/confxml.xml
+-r表示先整个监控目录全部同步一遍
+-d表示后台运行程序
+-o指定配置文件路径
+如果要监控多个目录，就写多个配置文件，然后起动多个程序即可。
+----------------------------------------------------------------------------
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<head version="2.5">
+    <host hostip="192.168.1.31" port="8008"></host>
+    <debug start="false"/>
+    <fileSystem xfs="false"/>
+    <filter start="false">
+	<exclude expression="(.*)\.svn"></exclude>
+	<exclude expression="(.*)\.gz"></exclude>
+	<exclude expression="^info/*"></exclude>
+	<exclude expression="^static/*"></exclude>
+    </filter>
+    <inotify>
+	<delete start="true"/>
+	<createFolder start="true"/>
+	<createFile start="true"/>
+	<closeWrite start="true"/>
+	<moveFrom start="true"/>
+	<moveTo start="true"/>
+	<attrib start="true"/>
+	<modify start="true"/>
+    </inotify>
+
+    <sersync>
+	<localpath watch="/data/">
+	    <remote ip="192.168.1.32" name="mukuaiming"/>
+		<remote ip="192.168.1.33" name="mukuaiming"/>
+	    <!--<remote ip="192.168.8.39" name="tongbu"/>-->
+	    <!--<remote ip="192.168.8.40" name="tongbu"/>-->
+	</localpath>
+	<rsync>
+	    <commonParams params="-artuz"/>
+	    <auth start="true" users="rsync_backup" passwordfile="/etc/rsync.password"/>
+	    <userDefinedPort start="true" port="873"/><!-- port=874 -->
+	    <timeout start="false" time="100"/><!-- timeout=100 -->
+	    <ssh start="false"/>
+	</rsync>
+	<failLog path="/tmp/rsync_fail_log.sh" timeToExecute="60"/><!--default every 60mins execute once-->
+	<crontab start="false" schedule="600"><!--600mins-->
+	    <crontabfilter start="false">
+			<exclude expression="*.php"></exclude>
+			<exclude expression="info/*"></exclude>
+	    </crontabfilter>
+	</crontab>
+	<plugin start="false" name="command"/>
+    </sersync>
+
+    <plugin name="command">
+	<param prefix="/bin/sh" suffix="" ignoreError="true"/>	<!--prefix /opt/tongbu/mmm.sh suffix-->
+	<filter start="false">
+	    <include expression="(.*)\.php"/>
+	    <include expression="(.*)\.sh"/>
+	</filter>
+    </plugin>
+
+    <plugin name="socket">
+	<localpath watch="/opt/tongbu">
+	    <deshost ip="192.168.138.20" port="8009"/>
+	</localpath>
+    </plugin>
+    <plugin name="refreshCDN">
+	<localpath watch="/data0/htdocs/cms.xoyo.com/site/">
+	    <cdninfo domainname="ccms.chinacache.com" port="80" username="xxxx" passwd="xxxx"/>
+	    <sendurl base="http://pic.xoyo.com/cms"/>
+	    <regexurl regex="false" match="cms.xoyo.com/site([/a-zA-Z0-9]*).xoyo.com/images"/>
+	</localpath>
+    </plugin>
+</head>
+-------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+

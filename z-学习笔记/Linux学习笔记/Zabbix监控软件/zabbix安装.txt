@@ -1,0 +1,109 @@
+[root@linuxnb src]# mysql -uroot -p123456
+MariaDB [(none)]> CREATE DATABASE zabbix CHARACTER SET utf8 COLLATE utf8_bin;
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON zabbix.* TO zabbix@localhost IDENTIFIED BY 'zabbix_2833(0241*';
+MariaDB [(none)]> flush privileges;
+
+[root@linuxnb src]# groupadd zabbix
+[root@linuxnb src]# useradd -g zabbix zabbix
+
+
+[root@linuxnb src]# tar -zxf zabbix-3.2.1.tar.gz
+[root@linuxnb src]# cd /usr/local/src/zabbix-3.2.1/database/mysql/
+
+
+
+[root@linuxnb mysql]# mysql -u zabbix -p'zabbix_2833(0241*' zabbix < schema.sql
+[root@linuxnb mysql]# mysql -u zabbix -p'zabbix_2833(0241*' zabbix < images.sql
+[root@linuxnb mysql]# mysql -u zabbix -p'zabbix_2833(0241*' zabbix < data.sql
+
+[root@linuxnb mysql]# cd /usr/local/src/zabbix-3.2.1
+
+
+[root@linuxnb zabbix-3.2.1]# yum -y install net-snmp-devel unixODBC-devel libssh2-devel OpenIPMI-devel openldap-devel libssh2-devel libxml2-devel
+
+-------备用---------------
+[root@linuxnb zabbix-3.2.1]# yum install mysql-community-devel libxml2-devel  unixODBC-devel net-snmp-devel libcurl-devel libssh2-devel OpenIPMI-devel openssl-devel openldap-devel
+-------备用---------------
+
+
+[root@linuxnb zabbix-3.2.1]# ./configure --prefix=/usr/local/zabbix \
+--enable-server --enable-agent \
+--enable-ipv6 \
+--with-net-snmp \
+--with-unixodbc \
+--with-ssh2 \
+--with-openipmi \
+--with-libcurl \
+--with-mysql=/usr/local/mysql/bin/mysql_config \
+--with-openssl=/usr/local/openssl \
+--with-libxml2=/usr/local/libxml2/bin/xml2-config
+
+[root@linuxnb zabbix-3.2.1]# make install
+
+
+然后就是修改/usr/local/zabbix/etc下的配置文件了
+zabbix_server.conf
+zabbix_agentd.conf
+修改很好修改，网上一抓一大把
+
+
+复制网页文件到nginx的网页文件目录
+[root@linuxnb zabbix-3.2.1]# cp -r /usr/local/src/zabbix-3.2.3/frontends/php/*  /wwwroot/zabbix/
+
+
+然后通过ip访问网页
+有红色叉叉的都很好解决，一般都是修改php.ini即可，网上一抓一大把
+
+最后说下有些扩展的要求，这里以bcmath为例子说明这个东西的安装方法
+
+进入php的源码目录，就是那个tar.gz解压出来的解压包
+进入/usr/local/src/php-5.6.26/ext/bcmath
+
+/usr/local/php/bin/phpize
+./configure --with-php-config=/usr/local/php/bin/php-config
+make && make install
+
+安装完成之后你会看到一个bcmath.so生成，这个时候你需要对应的去修改一下php.ini，参考lamp或者lnmp
+
+同理，其余的也一样，比如如下两个，也可以参考lamp或者lnmp编译最后面的那些php扩展，这就是动态编译的好处，不用重新编译php
+mbstring
+gettext
+
+其余一般php编译的时候都会加上，比如gd库，mhash加密算法等等。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
