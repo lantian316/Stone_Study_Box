@@ -1,0 +1,81 @@
+LB Cluster & LVS
+
+硬件负载均衡设备；
+	F5,BIG IP、
+	Citrix,Netscaler、
+	A10、
+软件负载均衡设备：
+	四层  
+		LVS (章文嵩)
+		只理解只解析四层协议，对应用层协议当中是什么内容不做任何处理，
+		由于不解析更高层协议，所以工作性能更好。
+		但是所支持的高级特性是没有的。比如根据用户请求的真正的资源来做负载均衡，url，lvs不具备这种功能。
+		LVS ---> Linux Virtual Server (工作在内核的tcp/ip协议栈上，不是工作在用户空间)(LVS不能和iptables一起使用)
+			Cluster service
+		LVS
+			ipvsadm:管理集群服务的命令行工具(工作在用户空间的工具)
+			ipvs:内核(工作在内部空间的工具)
+			
+			schedule method ---> 调度算法
+			
+		三种类型：
+			Network address translation(LVS-NAT) ---> 地址转换 ----- [最简单，最容易理解]
+				1、集群节点必须和director在同一个IP网络中。
+				2、RIP地址通常是私有地址，仅用于各集群节点间通讯。
+				3、director位于client和real server之间，并负责处理进出的所有通信。
+				4、realserver必须将网关指向DIP
+				5、支持端口映射
+				6、real server可以使用任意操作系统。(director必须工作在linux上面)
+				7、较大规模应用场景中，director容易成为系统瓶颈。
+				
+			Direct routing(LVS-DR) ---> 直接路由 ----- [最常用]
+				1、各集群节点必须和director在同一个物理网络中(real server必须在同一个机房，甚至同一个机柜，不允许任何路由设备)
+				2、RIP可以不用是私有地址，可以是公网地址(实现便捷的远程管理和监控)
+				3、director仅仅只负责处理入站请求，响应报文则由Real server直接发往客户端(director直接修改请求报文的mac地址为real server的mac地址)
+				4、real server不能将网关指向DIP
+				5、不支持端口映射
+				6、大多数操作系统都可以使用此模式，因为要隐藏vip，有的操作系统不行。
+				7、由于director不处理响应报文，所以DR模式比NAT模式能处理更多的real server。
+				
+			IP tunneling(LVS-TUN) ---> 隧道
+				1、各集群节点不必在同一网络中，可以跨越互联网(可以有的在上海，有的在纽约)
+				2、RIP必须是公网地址。
+				3、director仅仅只负责处理入站请求，响应报文则由Real server直接发往客户端(cip和vip不动，在外面再封装一层使用dip和rip将报文发送至real server)(通过ip隧道的方式封装报文)
+				4、real server不能将网关指向DIP
+				5、只有支持隧道功能的操作系统才能用于Real server
+				6、不支持端口映射
+			
+			
+			
+		
+	七层反向代理
+		本来就是为某些特定协议所提供，所设计的。因此它能够精确的去解析解码对应的协议，而且还能够在那个协议的基础上做一定的修改之后往后端做负载均衡。
+		因此它的操纵能力更强，但是在一定程度上来讲它的性能略逊于四层设备。在某些特定场景下七层所实现的功能和特性可能反而是更符合生产环境所需要的。
+		nginx (俄罗斯人) 、  
+			http,smtp,pop3,imap
+		haproxy
+			http,tcp(mysql,smtp)
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			

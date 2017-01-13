@@ -1,0 +1,42 @@
+#!/bin/bash
+#
+VIP=192.168.10.3
+CPORT=80
+FAIL_BACK=127.0.0.1
+RS=("192.168.10.7" "192.168.10.7")
+RSSTATS=("1" "1")
+RW=("2" "1")
+RPORT=80
+let COUNT=0
+TYPE=g
+
+for I in ${RS[*]}
+do
+	if curl --connect-timeout 1 http://$I  &> /dev/null;then
+		if [ ${RSSTATS[$COUNT]} -eq 0 ];then
+			add $I $RW[$COUNT]
+			[ $? -eq 0 ] && RSTATUS[$COUNT]=1
+		fi
+	else
+		if [ ${RSSTATS[$COUNT]} -eq 1 ];then
+			del $I
+			[ $? -eq 0 ] && RSTATUS[$COUNT]=0
+		fi
+	fi
+	let COUNT++
+done
+
+
+
+add()
+{
+	ipvsadm -a -t $VIP:$CPORT -r $1:$RPORT -$TYPE -w $2
+	[ $? -eq 0 ] && return 0 || return 1
+}
+
+
+del()
+{
+	ipvsadm -d -t $VIP:$CPORT -r $1:$RPORT
+	[ $? -eq 0 ] && return 0 || return 1
+}

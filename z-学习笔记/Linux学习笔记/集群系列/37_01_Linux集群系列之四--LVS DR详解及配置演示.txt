@@ -1,0 +1,81 @@
+LB Cluster & LVS
+
+	VIP:MAC(DVIP)
+	arptables
+	kernel parameter:(内核中引用两种内核参数)
+		arp_ignore:定义接收到ARP请求时的响应级别。
+			0:只要本地配置的有相应地址就给出响应。无论在哪个接口上。
+			1:仅在请求的目标地址配置在请求到达的接口上的时候，才响应。
+			2-8:不明意思，这里也没必要了解和学习，记住0和1就好
+			
+		arp_announce:定义将自己地址向外通告时的通告级别。
+			0:将本机任何借口上的任何地址向外通告(默认为0)
+			1:试图仅向目标网络通告与其网络匹配的地址
+			2:仅向与本地接口上地址匹配的网络进行通告。
+			
+			
+DR模型演示
+	每一个主机都只需要一块网卡就可以了
+	director：
+		eth0:  ---> DIP:172.16.100.2
+		eth0:0 ---> VIP:172.16.100.1
+	real server1:
+		eth0:  ---> rip1:172.16.100.7
+		lo:0   ---> VIP:172.16.100.1
+	real server2:
+		eth0:  ---> rip2:172.16.100.8
+		lo:0   ---> VIP:172.16.100.1
+		
+	相关配置
+		director：
+			route add -host 172.16.100.1 dev eth0:0
+			
+		real server1:
+			#sysctl -w proc.sys.net.ipv4.conf.eth0.arp_announce=2
+			#sysctl -w proc.sys.net.ipv4.conf.all.arp_announce=2
+			echo "2" > /proc/sys/net/ipv4/conf/eth0/arp_announce
+			echo "1" > /proc/sys/net/ipv4/conf/eth0/arp_ignore
+			#修改lo网卡也可以，随便修改一个就行了
+			
+			echo "2" > /proc/sys/net/ipv4/conf/all/arp_announce
+			echo "1" > /proc/sys/net/ipv4/conf/all/arp_ignore
+			
+			#只有上面设置完arp_ignore响应级别和arp_announce通告级别之后才能配置lo:0的vip地址
+			ifconfig lo:0 172.16.100.1/16 broadcast 172.16.100.1/16 netmask 255.255.255.255 up
+			
+			route add -host 172.16.100.1 dev lo:0
+			
+		real server2:
+			echo "2" > /proc/sys/net/ipv4/conf/eth0/arp_announce
+			echo "1" > /proc/sys/net/ipv4/conf/eth0/arp_ignore
+			#修改lo网卡也可以，随便修改一个就行了
+			
+			echo "2" > /proc/sys/net/ipv4/conf/all/arp_announce
+			echo "1" > /proc/sys/net/ipv4/conf/all/arp_ignore
+			
+			#只有上面设置完arp_ignore响应级别和arp_announce通告级别之后才能配置lo:0的vip地址
+			ifconfig lo:0 172.16.100.1/16 broadcast 172.16.100.1/16 netmask 255.255.255.255 up
+			
+			route add -host 172.16.100.1 dev lo:0
+				
+	
+	ipvsadm -C
+	ipvsadm -A -t 172.16.100.1:80 -s wlc
+	ipvsadm -a -t 172.16.100.1:80 -r 172.16.100.7 -g -w 2
+	ipvsadm -a -t 172.16.100.1:80 -r 172.16.100.8 -g -w 2
+	
+	ipvsadm -L -n
+	ipvsadm -L -n --stats
+		
+
+	调整
+	ipvsadm -E -t 172.16.100.1:80 -s wrr
+	ipvsadm -e -t 172.16.100.1:80 -r 192.168.10.8 -g -w 3
+	ipvsadm -e -t 172.16.100.1:80 -r 192.168.10.9 -g -w 1
+			
+	保存		
+	ipvsadm -S > /path/to/somefile	
+	
+	载入
+	ipvsadm -R < /path/from/somefile
+	

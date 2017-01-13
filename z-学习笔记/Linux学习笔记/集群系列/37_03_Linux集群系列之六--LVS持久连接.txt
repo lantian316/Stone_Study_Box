@@ -1,0 +1,64 @@
+LVS持久连接
+	无论使用什么算法，LVS持久都能实现在一定时间内，将来自同一个客户端请求派发至此前选定的RS。
+	
+	持久连接模板(内存缓冲区):
+		每一个客户端  及分配给它的RS的映射关系；
+		
+	ipvsadm -A|E ... -p timeout:
+		timeout:持久连接时长，默认300秒;单位是秒;
+		
+	在基于SSL，需要用到持久连接；
+		PPC :  --->  持久端口连接   ---> 将来自于同一个客户端对同一个集群服务的请求，始终定向至此前选定的RS
+				#ipvsadm -A -t 172.16.100.1:80 -s rr -p 600
+				#ipvsadm -E -t 172.16.100.1:80 -s rr -p 600
+				
+		PCC :  --->  持久客户端连接 ---> 将来自于同一个客户端对所有端口的请求，始终定向至此前所选定的RS。
+			把所有端口全部定义为集群服务，一律向RS转发;
+			把0端口定义成集群服务的意思是：所有端口的服务都是集群服务。
+				#ipvsadm -A -t 172.16.100.1:0 -s rr -p 600
+				#ipvsadm -E -t 172.16.100.1:0 -s rr -p 600
+				#ipvsadm -a -t 172.16.100.1:0 -r 172.16.100.7 -g -w 2
+				#ipvsadm -a -t 172.16.100.1:0 -r 172.16.100.8 -g -w 2
+
+		PNMPP: --->  持久防火墙标记连接
+		
+		
+防火墙标记和使用其做多端口服务的集群归类绑定。
+80：http
+443：https
+8080：tomcat
+
+iptables -t mangle -A PREROUTING -d 192.168.10.3 -i eth0 -p tcp --dport 80 -j MARK --set-mark 8
+iptables -t mangle -A PREROUTING -d 192.168.10.3 -i eth0 -p tcp --dport 443 -j MARK --set-mark 8
+iptables -t mangle -A PREROUTING -d 192.168.10.3 -i eth0 -p tcp --dport 8080 -j MARK --set-mark 8
+
+8就是防火墙标记号码，接下来就可以直接通过-f 8定义集群，相当于用8归类了80,443等服务
+
+ipvsadm -A -f 8 -s rr
+ipvsadm -a -f 8 -r 192.168.10.7 -g -w 2
+ipvsadm -a -f 8 -r 192.168.10.8 -g -w 5
+查看验证访问效果
+
+ipvsadm -A -f 8 -s rr -p 600
+查看验证访问效果
+
+
+ldirectord模块(简单配置即可监控RS健康状况，C语言开发的)
+
+
+
+rsync + inotify (如果频繁更新，效果不好)
+
+sersync客户端(C语言开发)
+多线程多并发，大文件支持比较好
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,76 @@
+Scale On:向上扩展      :直接提高服务器硬件
+Scale Out:向外扩展     :做集群
+
+
+①
+Load Balancing    ---> LB ---> 负载均衡
+health check : 健康状况检查机制
+
+②
+High Availbaility ---> HA ---> 高可用集群
+心跳通过广播发出 -- >heartbeat
+
+③
+High Performance ---> HP(HPC)
+高性能集群(主要用于科学计算，比如气象局计算天气等)
+	向量机
+	并行处理集群(hadoop等)
+		分布式文件系统
+		将大任务切割为小任务，分别进行处理的机制。
+	
+
+LB和HA集群区别
+LB提升服务的并发能力，平均处理
+HA保证服务可用性
+	可用性：在线时间/(在线时间+故障处理时间)
+			99%,99.9%,99.99%,99.999%
+
+Round Robin          ---> RR  ---> 轮调机制 ---> 就是轮询 --> 轮流
+Weighted Round Robin ---> WRR ---> 加权轮调
+
+
+文件级别 差于 块级别
+NFS:网络文件共享：
+并发能力不行，文件级别交换数据
+DAS --> Direct Attached Storage --> 直接附加存储
+
+raid阵列要更强
+直接通过主板总线提供数据交换
+由内核直接操作块级别的数据
+NAS --> Network Attached Storage --> 网络附加存储
+
+split-brain:脑裂
+
+fencing:隔离      节点级别：stontih  资源级别
+
+电源交换机，如果发现A挂了但是还没挂透，B可以夺过来资源并切断A的电源
+STONITH：SHOOT THE OTHER NODE IN THE HEAD
+ 
+rsync + inotify
+rsync:文件复制工具
+inotity:检测文件通知
+
+
+为了避免高可用集群分裂
+高可用集群至少需要有3个节点，或者说奇数个节点
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

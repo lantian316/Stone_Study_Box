@@ -1,0 +1,156 @@
+LB Cluster & LVS
+
+三种类型：
+	Network address translation(LVS-NAT) ---> 地址转换 ----- [最简单，最容易理解]
+	Direct routing(LVS-DR) ---> 直接路由 ----- [最常用]
+	IP tunneling(LVS-TUN) ---> 隧道
+
+
+LVS默认的算法为：WLC
+			
+固定调度、静态方法(四种)
+	静态算法不考虑real server现有目前的正处于活动的连接 和 非活动连接(不考虑)
+		活动连接：正在数据传输的连接
+		非活动连接：数据传输完毕但是连接没有断开
+	RR   --->   Round Robin          ---> 轮调机制，就是轮询，轮流，轮叫
+	WRR  --->   Weighted Round Robin ---> Weight，加权轮询,加权轮调
+	SH   --->   Source hash ---> 源地址hash(session affinity)(例如购物车第一次访问添加，在第二次访问的时候也能看到)
+								session sharing  源地址hash(session affinity)(session绑定)
+								(保证同一个用户访问的是同一台服务器)(以用户的请求ip为准做hash)
+	DH   --->   Destination hashing  ---> 目标地址hash，把同一个请求发给同一个server，以请求地址为准做hash，
+				  主要用于cache服务器集群，让同样的请求直接获取缓存服务器里面的内容。(这个场景只是加深理解)
+
+
+
+动态调度(六种)
+	LC    --->   Least-Connection  ---> 最少连接	
+		算法：active*256+inactive 哪个real server的小就将请求分给谁
+	WLC   --->   Weighted Least-Connection Scheduling	---> 加权最少连接		
+		算法：(active*256+inactive)/weight	哪个real server的小就将请求分给谁
+		默认算法是WLC
+	SED   ---> 	 Shortest Expected Delay	---> 最短期望延迟(基于wlc算法)忽略inactive(非活动连接)
+		算法：(active+1)*256/weight     忽略inactive(非活动连接)
+	NQ    --->   never queue  ---> 	永不排队，先分给权重大的(改进的sed算法)  
+	LBLC  ---> 	Locality-Based Least-Connection(LBLC:DH)(动态的DH)
+				基于本地的最少连接
+	LBLCR ---> 	Locality-Based Least-Connection with Replication Scheduling(LBLCR)
+				基于本地的带复制功能的连接
+			
+ipvsadm:
+	管理集群服务
+		添加：-A  -t|u|f service-address [-s scheduler]
+				-t:TCP协议的集群，如果是web就80端口，如果是pop3协议就110端口
+					service-address:   IP : PORT
+				-u:UDP协议的集群，如果是DNS集群就-u
+					service-address:   IP : PORT
+				-f:Firewall Mark防火墙标记(FWM)
+					service-address:   Mark Number(防火墙标记号)
+				-s:指定调度算法模式，可以省略，默认是WLC
+		修改：-E
+				使用格式和-A相同
+		删除：-D -t|u|f service-address
+		
+		#ipvsadm -A -t 172.168.100.1：:80 -s rr
+		
+	管理集群服务中的RS(real server)
+		添加：-a -t|u|f service-address -r server-address [-g|i|m][-w weight
+				-t|u|f service-address:事先已经定义好了的某集群服务
+				-r server-address：某real server的地址，在NAT模型中，可使用IP：PORT实现端口映射
+				[-g|i|m]
+					-g:DR(可以省略，默认就是DR模型)
+					-i:TUN
+					-m:NAT
+				[-w weigth]:定义服务器权重
+		#ipvsadm -a -t 172.168.100.1:80 -r 172.168.10.8 -m
+		#ipvsadm -a -t 172.168.100.1:80 -r 172.168.10.9 -m
+		修改：-e
+		删除：-d -t|u|f service-address -r server-address(从哪个集群中删除哪个real server)
+	查看
+		-L|l
+			-n:不反解ip和端口，数字格式显示主机ip地址和端口
+			--stats：显示统计信息
+			--rate：速率，统计用
+			--timeout：显示tcp、tcpin和udp的超时时间长度
+			--daemon：显示进程状态和多拨端口的。
+			--sort：对real server进行排序(默认升序)
+			-c --connecttion：显示当前ipvs连接数，连接状况
+	
+	删除所有集群服务		
+		-C：清空ipvs规则，
+	
+	保存规则
+		-S
+		#ipvsadm -S > /path/to/somefile
+		
+	载入此前的规则：
+		-R
+		#ipvsadm -R < /path/from/somefile
+		
+		
+	事实上可以使用
+		service ipvsadm save     保存规则
+		service ipvsadm restart  载入规则
+		service ipvsadm start
+		
+		
+做集群各节点之间的时间偏差不应该超出1秒钟：
+对于负载均衡服务器时间影响不是很大，但是对于高可用集群来讲时间影响非常非常大。
+
+NTP：network time protocol 时间同步服务器
+
+	ntpdate server
+	根据server的时间调整时间
+	
+	ntpd服务器，可以使用director做ntpd服务器
+	
+	
+	
+NAT模型演示
+	director：两张网卡
+		外网地址:172.16.100.1:80
+		内网地址:192.168.10.7
+	real server1:192.168.10.8   网关指向  192.168.10.7(director的IP)
+	real server2:192.168.10.9   网关指向  192.168.10.7(director的IP)
+	
+	echo 1 > /proc/sys/net/ipv4/ip_forward
+	打开网卡间的转换
+	
+	ipvsadm -A -t 172.16.100.1:80 -s rr
+	ipvsadm -a -t 172.16.100.1:80 -r 192.168.10.8 -m
+	ipvsadm -a -t 172.16.100.1:80 -r 192.168.10.9 -m
+	
+	ipvsadm -L -n
+	ipvsadm -L -n --stats
+		
+
+	调整
+	ipvsadm -E -t 172.16.100.1:80 -s wrr
+	ipvsadm -e -t 172.16.100.1:80 -r 192.168.10.8 -m -w 3
+	ipvsadm -e -t 172.16.100.1:80 -r 192.168.10.9 -m -w 1
+			
+	保存		
+	ipvsadm -S > /path/to/somefile	
+	
+	载入
+	ipvsadm -R < /path/from/somefile
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
