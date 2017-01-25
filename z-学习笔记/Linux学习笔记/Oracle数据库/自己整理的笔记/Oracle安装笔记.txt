@@ -190,29 +190,11 @@ scp /root/my_install_response.rsp root@10.170.7.109:/root/
 beibeibao@2016
 scp /root/my_dbca.rsp root@10.170.7.109:/root/
 
-
+################################################################
+安装包在cd /usr/local/src/database/
 /usr/local/src/database/runInstaller -silent -force -responseFile '/usr/local/src/database/response/my_install_response.rsp'
 ################################################################
 
-7安装数据库软件
-################################################################
-安装包在cd /usr/local/src/database/
-/usr/local/src/database/runInstaller \
--silent \
--debug  \
--ignorePrereq \
-oracle.install.responseFileVersion=/oracle/install/rspfmt_dbinstall_response_schema_v11_2_0 \
-oracle.install.option=INSTALL_DB_SWONLY \
-ORACLE_HOSTNAME=host05 \
-DECLINE_SECURITY_UPDATES=true \
-UNIX_GROUP_NAME=oinstall \
-INVENTORY_LOCATION=/u01/app/oraInventory  \
-SELECTED_LANGUAGES=en \
-ORACLE_HOME=/u01/app/oracle/product/11.2.0/db_1 \
-ORACLE_BASE=/u01/app/oracle \
-oracle.install.db.InstallEdition=EE  \
-oracle.install.db.DBA_GROUP=dba \
-oracle.install.db.OPER_GROUP=oinstall
 
 ****************************************************************************
 *问题一 [FATAL] [INS-32035]
@@ -430,6 +412,27 @@ orapwd file=/opt/oracle/product/11.2.0/dbhome_1/dbs/密码文件 password=newpas
 
 
 
+
+export ORACLE_SID=RTS
+export ORACLE_BASE=/u01/app/oracle
+export ORACLE_HOME=$ORACLE_BASE/product/11.2.0/db_1
+export ORACLE_TERM=xterm
+export PATH=$PATH:$ORACLE_HOME/bin
+export LD_LIRARY_PATH=$LD_LIBRARY_PATH:$ORACLE_HOME/bin
+export CLASSPATH=$ORACLE_HOME/JRE:ORACLE_HOME/jlib:$ORACLE_HOME/rdbms/jlib
+
+查看数据库状态
+select status from v$instance;
+
+工具：rlwrap
+rlwrap sqlplus / as sysdba
+
+修改sqlplus提示符
+vim $ORACLE_HOME/sqlplus/admin/glogin.sql
+最后加入
+set sqlprompt "_user'@'_connect_identifier > "
+含义：_user 代表 当前登录用户名
+     _connect_identified   连接数据库
 
 
 

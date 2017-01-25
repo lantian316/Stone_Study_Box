@@ -1,0 +1,168 @@
+export ORACLE_SID=RTS
+export ORACLE_BASE=/u01/app/oracle
+export ORACLE_HOME=$ORACLE_BASE/product/11.2.0/db_1
+export ORACLE_TERM=xterm
+export PATH=$PATH:$ORACLE_HOME/bin
+export LD_LIRARY_PATH=$LD_LIBRARY_PATH:$ORACLE_HOME/bin
+export CLASSPATH=$ORACLE_HOME/JRE:ORACLE_HOME/jlib:$ORACLE_HOME/rdbms/jlib
+
+
+export ORACLE_BASE=/u01/app/oracle/
+
+
+/u01/app/oracle/admin
+                     /RTS/adump  --------  审计文件的信息
+                     /RTS/dpdump --------  数据泵的目录对象
+                     /RTS/pfile/ --------  参数文件的备份
+/u01/app/oracle/cfgtoollogs
+/u01/app/oracle/checkpoints
+/u01/app/oracle/diag  -------------------  adr的基目录，各组件的警告信息
+/u01/app/oracle/flash_recovery_area
+/u01/app/oracle/oradata
+/u01/app/oracle/product
+
+##################################################
+sqlplus  说明
+sqlplus / as sysdba
+sqlplus是命令
+/是分隔符，左边是用户名，右边是密码
+as sysdba 使用dba特权身份连接
+
+
+SYS@orcl >
+可以使用sql，也可以使用sqlplus命令
+sqlplus是oracle的一个工具
+
+
+
+
+help index
+获取sqlplus命令帮助
+
+1、执行一个SQL脚本文件
+例子
+vim a.sql
+select * from scott.dept;
+SYS@orcl >start /home/oracle/a.sql
+SYS@orcl >@/home/oracle/a.sql
+
+SYS@orcl >start file_name
+SYS@orcl >@ file_name
+    可以将多条sql语句保存在一个文本文件中，这样当要执行这个文件中的所有的sql语句时，用上面的任何一个命令即可
+    @等于start命令，用来运行一个sql脚本文件
+    @命令调用当前目录下的，或者钉全路径
+
+@@ { url | file_name[.ext]} [arg ...]
+执行位于指定脚本中的SQL*Plus语句。这个命令和@("at"符号)命令功能差不多。只执行嵌套的命令文件时它很有用，
+因为它会在与调用它的命令文件相通的路径或url中查找指定的命令文件。
+
+
+2、重新运行商一次运行的sql语句
+SYS@orcl > /
+
+3、编写交互式命令accept
+SYS@orcl > accept var prompt 'Please enter values:'
+Please enter values:7788
+SYS@orcl > select * from scott.dept where deptno=&a;
+old   1: select * from scott.dept where deptno=&a
+new   1: select * from scott.dept where deptno=7788
+
+no rows selected
+
+4、将指定的文本加到sql buffer的当前行后面         a[ppend]
+SYS@orcl > append select * from dual;
+SYS@orcl > del;              删除buffer里面的命令
+SYS@orcl > list;             显示buffer里面的命令
+
+
+
+
+5、启动或停止自动归档联机重做日志，手工(显示地)归档指定的重做日志，或者显示重做日志文件的信息。
+ARCHIVE LOG  { LIST | STOP } | { START | NEXT | ALL | integer } [ TO destination ]
+
+SYS@orcl > archive log list;
+Database log mode	       Archive Mode
+Automatic archival	       Enabled
+Archive destination	       USE_DB_RECOVERY_FILE_DEST
+Oldest online log sequence     34
+Next log sequence to archive   36
+Current log sequence	       36
+
+
+6、屏蔽掉一个列表中显示的相同的值         BREAK ON break_column
+SYS@orcl > break on deptno
+SYS@orcl > select deptno,ename,sal from scott.emp;
+
+显示对BREAK的设置
+SYS@orcl > break
+
+删除BREAK的设置
+SYS@orcl > clear breaks
+
+7、BTI [TLE] [printspec [ text | variable ] ... ] | [ ON | OFF ]
+在每个报表页的底部放置一个标题并对其格式化显示，或者列出当前BTITLE定义。
+使用以下子句之一替换printspec.
+COL n
+LE[ft] |
+BOLD
+S[KIP] [n]
+CE[NTER]
+FORMAT text
+TAB n
+R[IGHT]
+
+SYS@orcl > btitle column 5 deptno
+SYS@orcl > select deptno,ename,sal from scott.emp;
+
+
+8、C[HANGE] sepchar old [sepchar [new [sepchar]]]
+更改在SQL缓冲区当前行中第一次出现的指定文本。
+可使用任何非文字数字字符(例如"/"或者"！")作为sepchar
+CHANGE和第一个sepchar之间的空格可省略。
+修改sql buffer中的当前行中，第一个出现的字符串 C[HANGE]
+/old_value/new_value
+SYS@orcl > change /scott/dd
+  1* select * from dd.dept where deptno=&a
+
+
+9、重置当前值 CL[EAR] option ...
+option 可以是：
+
+    BRE[AKS]
+    BUFF[ER]
+    SCR[EEN]
+
+从SQL缓冲区删除所有行
+SYS@orcl > lsit
+  1* select * from dd.dept where deptno=&a
+SYS@orcl > clear buffer
+
+清屏
+SYS@orcl > clear screen
+        可以简写为 clear scr
+
+
+10、COL命令：格式化列的显示形式
+    1).改变缺省的列标题
+        COLUMN column_name HEADING column_heading
+
+        SYS@orcl > select * from scott.dept;
+
+    2).将列名ENAME改为新列名EMPLOYEE NAME并将新列名放在两行上
+        如:COLUMN ENAME HEADING 'Employee | Name'
+        SYS@orcl > column dname heading 'a | name'
+        SYS@orcl > select * from scott.dept;
+
+    3).改变列的显示长度
+        如：col 列名 format a40
+
+    4).设置列标题的对其方式 JUS[TIFY] {L[EFT]|C[ENTER]|R[IGHT]}
+        如：col 列名 justify center
+        SYS@orcl > column dname justify right
+        SYS@orcl > select * from scott.dept;
+
+    5).
+
+
+
+
