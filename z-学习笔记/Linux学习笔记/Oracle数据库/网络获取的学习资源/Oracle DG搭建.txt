@@ -1,0 +1,261 @@
+Oracle DG搭建步骤
+
+环境描述
+	主从库硬件最好一致。oracle数据库版本需要一致。
+	主库 192.168.200.201 数据库实例名：PRIMARY       db_unique_name:PRIMARY
+	从库 192.168.200.202 数据库实例名：STANDBY       db_unique_name:STANDBY
+
+
+
+
+一、主库安装数据库（包括建库），备库仅安装数据库软件
+二、主库监听和网络服务名配置
+三、主库DG相关参数配置
+四、主库创建standby日志
+五、备库创建相关目录
+六、备库传输 pfile、口令文件、控制文件、数据文件
+七、备库修改备库监听
+八、备库修改pfile参数
+九、备库启动
+十、验证是否成功
+
+
+
+
+
+############################################################################################
+
+一、主库安装数据库（包括建库）
+	1、配置hosts文件
+		/etc/hosts文件加入以下内容
+		192.168.200.201           PRIMARY
+		192.168.200.202           STANDBY
+	2、创建oracle用户
+		groupadd -g 1101 oinstall
+		groupadd -g 1102 dba
+		useradd -u 1002 -g oinstall -G dba oracle
+		echo "oracle" | passwd --stdin oracle
+	3、创建安装目录
+		mkdir -p /u01
+		chown -R oracle:oinstall /u01
+		chmod -R 775 /u01
+	4、配置oracle用户环境变量
+		/home/oracle/.bash_profile文件加入以下内容
+		export ORACLE_BASE=/u01/app/oracle
+		export ORACLE_HOME=$ORACLE_BASE/product/11.2.0/dbhome_1
+		export ORACLE_SID=PRIMARY
+		export PATH=/usr/sbin:$PATH
+		export PATH=$ORACLE_HOME/bin:$PATH
+	5、修改权限控制
+		/etc/security/limits.conf添加以下内容
+		oracle soft nproc 2047
+		oracle hard nproc 16384
+		oracle soft nofile 1024
+		oracle hard nofile 65536
+	6、修改登录限制
+		/etc/pam.d/login添加以下内容
+		session required pam_limits.so
+	7、修改用户调用权限
+		/etc/profile添加以下内容
+		if [ $USER = "oracle" ]; then
+				if [ $SHELL = "/bin/ksh" ]; then
+				ulimit -p 16384
+					ulimit -n 65536
+				else
+					ulimit -u 16384 -n 65536
+				fi
+				umask 022
+		fi
+	8、修改内核参数
+		/etc/sysctl.conf添加以下内容
+		fs.aio-max-nr = 1048576
+		fs.file-max = 6815744
+		kernel.shmmni = 4096
+		kernel.sem = 250 32000 100 128
+		net.ipv4.ip_local_port_range = 9000 65500
+		net.core.rmem_default = 262144
+		net.core.rmem_max = 4194304
+		net.core.wmem_default = 262144
+		net.core.wmem_max = 1048586
+
+	9、安装以来软件包
+		yum -y install \
+		binutils \
+		compat-libstdc++-33 \
+		compat-libcap1 \
+		elfutils-libelf \
+		elfutils-libelf-devel \
+		expat \
+		gcc \
+		gcc-c++ \
+		glibc \
+		glibc-common \
+		glibc-devel \
+		glibc-headers \
+		libaio \
+		libaio-devel \
+		libgcc \
+		libstdc++ \
+		libstdc++-devel \
+		make \
+		sysstat \
+		unixODBC \
+		unixODBC‐devel \
+		tigervnc-server
+	10、关闭防火墙和selinux
+		chkconfig vncserver on --level 35
+		chkconfig iptables off --level 35
+	11、安装数据库软件和建库
+	12、备库仅安装数据库软件
+
+############################################################################################
+二、主库监听和网络服务名配置
+	1、监听正常配置
+	2、网络服务名分别配主库和备库
+
+############################################################################################
+三、主库DG相关参数配置
+	1、设置归档位置和主库角色
+		1.1 创建standbylog目录和archivelog目录
+			[oracle@PRIMARY PRIMARY]$ mkdir /u01/app/oracle/oradata/PRIMARY/standbylog
+			[oracle@PRIMARY PRIMARY]$ mkdir /u01/app/oracle/oradata/PRIMARY/archivelog
+		1.2 主库设置归档位置
+			SQL> ALTER system SET log_archive_dest_1='LOCATION=/u01/app/oracle/oradata/PRIMARY/archivelog valid_for=(all_logfiles,all_roles) db_unique_name=PRIMARY' scope=spfile;
+	2、设置归档位置和背库角色
+		SQL> alter system set log_archive_dest_2='SERVICE=STANDBY lgwr sync valid_for=(online_logfile,primary_role) db_unique_name=STANDBY' scope=spfile;
+	3、DG服务名配置
+		SQL> alter system set LOG_ARCHIVE_CONFIG='DG_CONFIG=(PRIMARY,STANDBY)' scope=spfile;
+	4、设置归档可用
+		SQL> alter system set LOG_ARCHIVE_DEST_STATE_1=ENABLE;
+		SQL> alter system set LOG_ARCHIVE_DEST_STATE_2=ENABLE;
+	5、配置FAL_SERVER
+		这个参数指定当日志传输出现问题时，备库到哪里去找缺少的归档日志。它用在备库接收的到的重做日志间有缺口的时候。
+		SQL> alter system set FAL_SERVER=STANDBY scope=spfile;
+		SQL> alter system set FAL_CLIENT=PRIMARY scope=spfile;
+	6、设置主库的db_unique_name
+		SQL> alter system set db_unique_name=PRIMARY scope=spfile;
+	7、数据文件同步配置
+		如果需要在主库添加或者删除数据文件时，这些文件是否会在备库添加或删除
+		默认此参数是MANUAL手工方式（MANUAL不会同步到备库，AUTO自动同步）
+		SQL> alter system set standby_file_management='AUTO';
+	8、关机启动创建pfile
+	   SQL> shutdown immediate;
+       SQL> CREATE pfile FROM spfile;
+
+############################################################################################
+四、主库创建standby日志(可以不创建)
+	1、说明
+		在主库创建standby log file
+		从库使用standby log files来保存从主库接收到的重做日志。
+		既然主要是从库在使用，那为什么需要在主库上也建立standby log files?
+		原因主要由两个：一是主库可能转换为备库，而备库是需要有standby log files的
+						二是如果主库建立了standby log files那备库会自动建立。
+	2、日志个数说明
+		一般而言， standby redo 日志文件组数要比 primary 数据库的 online redo 日志文件组数至少多一个。
+		推荐 standbyredo 日志组数量基于 primary 数据库的线程数(这里的线程数可以理解为 rac 结构中的 rac节点数)。
+		有一个推荐的公式可以做参考：(每线程的日志组数+1)*最大线程数
+		假设现在节点是1个，则=(3+1)*1=4
+		如果是双节点       则=(3+1)*2=8
+		这里我们创建4个standby logfile:	另：不建议组号group#紧挨着redo，因为后续redo有可能调整，这里我们从建立从11到14的standby logfile
+	3、创建、查询、删除
+		3.1 创建
+			SQL> alter database add standby logfile group  11 '/u01/app/oracle/oradata/PRIMARY/standbylog/standby11.log' size 50M;
+			SQL> alter database add standby logfile group  12 '/u01/app/oracle/oradata/PRIMARY/standbylog/standby12.log' size 50M;
+			SQL> alter database add standby logfile group  13 '/u01/app/oracle/oradata/PRIMARY/standbylog/standby13.log' size 50M;
+			SQL> alter database add standby logfile group  14 '/u01/app/oracle/oradata/PRIMARY/standbylog/standby14.log' size 50M;
+		3.2 查询
+			SQL> select group#,status,type,member from v$standby_log;
+			SQL> select group#,status,type,member from v$logfile;
+		3.3 删除
+			SQL> alter database drop standby logfile group 11;
+
+############################################################################################
+五、备库创建相关目录
+	mkdir -p $ORACLE_BASE/admin/PRIMARY/adump
+	mkdir -p $ORACLE_BASE/admin/PRIMARY/dpdump
+	mkdir -p $ORACLE_BASE/admin/PRIMARY/pfile
+	mkdir -p $ORACLE_BASE/fast_recovery_area/PRIMARY
+	mkdir -p $ORACLE_BASE/oradata/PRIMARY
+	mkdir -p $ORACLE_BASE/oradata/PRIMARY/archivelog
+
+############################################################################################
+
+六、备库修改备库监听
+	1、监听正常配置
+	2、网络服务名分别配主库和备库
+
+############################################################################################
+七、备库传输所需文件
+	7.1 复制密码文件
+		[oracle@STANDBY dbs]$ scp oracle@192.168.200.201:/u01/app/oracle/product/11.2.0/dbhome_1/dbs/orapwPRIMARY /u01/app/oracle/product/11.2.0/dbhome_1/dbs/orapwSTANDBY
+	7.2 主库创建standby控制文件
+		SQL> alter database create standby controlfile as '/u01/app/controlstb.ctl';
+	7.3 复制数据文件
+		[oracle@STANDBY STANDBY]$ scp -r oracle@192.168.200.201:/u01/app/oracle/oradata/PRIMARY/ /u01/app/oracle/oradata/PRIMARY
+		[oracle@STANDBY STANDBY]$ scp -r oracle@192.168.200.201:/u01/app/oracle/oradata/PRIMARY/archivelog/ /u01/app/oracle/oradata/PRIMARY/archivelog
+		[oracle@STANDBY STANDBY]$ scp oracle@192.168.200.201:/u01/app/controlstb.ctl /u01/app/oracle/oradata/PRIMARY/control01.ctl
+		[oracle@STANDBY dbs]$ cp /u01/app/oracle/oradata/PRIMARY/control01.ctl /u01/app/oracle/fast_recovery_area/PRIMARY/control02.ctl
+	7.4 复制监听文件和网络文件
+		[oracle@STANDBY STANDBY]$ scp oracle@192.168.200.201:/u01/app/oracle/product/11.2.0/dbhome_1/network/admin/listener.ora /u01/app/oracle/product/11.2.0/dbhome_1/network/admin/
+		[oracle@STANDBY STANDBY]$ scp oracle@192.168.200.201:/u01/app/oracle/product/11.2.0/dbhome_1/network/admin/tnsnames.ora /u01/app/oracle/product/11.2.0/dbhome_1/network/admin/
+	7.5 复制pfile
+		[oracle@STANDBY dbs]$ scp oracle@192.168.200.201:/u01/app/oracle/product/11.2.0/dbhome_1/dbs/initPRIMARY.ora /u01/app/oracle/product/11.2.0/dbhome_1/dbs/initSTANDBY.ora
+
+############################################################################################
+
+八、备库修改pfile参数
+	1、修改以下内容
+		STANDBY.__db_cache_size=289406976
+		STANDBY.__java_pool_size=4194304
+		STANDBY.__large_pool_size=71303168
+		STANDBY.__oracle_base='/u01/app/oracle'#ORACLE_BASE set from environment
+		STANDBY.__pga_aggregate_target=339738624
+		STANDBY.__sga_target=503316480
+		STANDBY.__shared_io_pool_size=0
+		STANDBY.__shared_pool_size=130023424
+		STANDBY.__streams_pool_size=0
+		*.db_unique_name='STANDBY'
+		*.dispatchers='(PROTOCOL=TCP) (SERVICE=STANDBYXDB)'
+		*.fal_server='PRIMARY'
+		*.fal_client='STANDBY'
+		*.log_archive_dest_1='LOCATION=/u01/app/oracle/oradata/PRIMARY/archivelog valid_for=(all_logfiles,all_role) db_unique_name=STANDBY'
+		*.log_archive_dest_2='SERVICE=PRIMARY lgwr async valid_for=(online_logfile,primary_role) db_unique_name=PRIMARY'
+
+############################################################################################
+
+九、从库启动
+	1、启动到nomount
+		SQL> startup nomount pfile=/u01/app/oracle/product/11.2.0/dbhome_1/dbs/initSTANDBY.ora;
+	2、创建spfile
+		SQL> CREATE spfile FROM pfile;
+	3、启动从库mount
+		SQL> ALTER database mount standby database;
+	4、修改数据库处于应用归档状态
+		SQL> ALTER database  recover managed standby database disconnect FROM session;
+	5、暂停redo应用
+		SQL> ALTER database recover managed standby database cancel;
+	6、以只读模式打开数据库
+		SQL> ALTER database OPEN READ ONLY;
+		注意：开启过程中报错，错误信息如下：
+		SQL> ALTER database OPEN READ ONLY;
+		ALTER database OPEN READ ONLY
+		*
+		ERROR at line 1:
+		ORA-10458: standby database requires recovery
+		ORA-01194: file 1 needs more recovery to be consistent
+		ORA-01110: data file 1: '/u01/app/oracle/oradata/PRIMARY/system01.dbf'
+		日志内容是在恢复的过程中需要一个日志，但是需要的这个日志的序列号比主库日志最高序列号高。重启主库后再启备库后成功。
+
+############################################################################################
+十、验证是否成功
+	1、查看日志是否有错误
+	2、查看主库、备库的日志最大号
+		SQL> SELECT MAX(sequence#) FROM v$archived_log;
+	3、查看主库、备库状态
+		SQL> SELECT database_role, open_mode, switchover_status, protection_mode FROM v$database;
+	4、查看是否有没有应用的日志
+		SQL> SELECT sequence#, applied FROM v$archived_log ORDER BY sequence#;
+		如果不是ADG（READ ONLY WITH APPLY）会有没有应用的日志
+	5、解锁scott用户查看数据是否同步
+	6、查看备库进程
+		SQL> select process,client_process,sequence#,status from v$managed_standby;

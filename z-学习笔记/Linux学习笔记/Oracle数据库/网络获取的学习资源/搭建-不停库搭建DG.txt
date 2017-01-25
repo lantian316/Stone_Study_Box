@@ -1,0 +1,498 @@
+Oracle数据库在归档模式下运行，在不停库的情况下添加DG备库
+
+
+试验环境
+操作系统：CentOS-6.4
+数据库：11.2.0.1
+数据库SID：ORCL
+全局数据库名：ORCL
+主库数据库唯一名：ORCLPR
+备库数据库唯一名：ORCLST
+数据库根路径：/u01/app/oracle
+数据库家路径：/u01/app/oracle/product/11.2.0/db_1
+归档日志路径：/u01/app/oracle/oradata/ORCL/archive_log/pr_log/	#当数据为主库时，存放归档日志；
+接收归档路径：/u01/app/oracle/oradata/ORCL/archive_log/st_log/	#当数据为备库时，接收归档日志；
+
+
+
+
+
+主要步骤
+1、安装主库（模拟运行中的数据库）
+2、主库准备
+3、备库准备
+
+
+
+
+
+
+
+
+
+
+
+-------以下步骤使用root用户-------
+
+
+1、安装主库（模拟运行中的数据库）
+
+
+1.1 添加ip和主机名对应修改防火墙添加1521
+################################################################
+cp -p /etc/hosts /etc/hosts.bak
+cat >> /etc/hosts <<EOF
+
+## add by oracle
+192.168.56.3	    	host03！！！注意修改
+EOF
+iptables -I INPUT 5 -p tcp --dport 1521 -j ACCEPT
+/etc/init.d/iptables save
+/etc/init.d/iptables restart
+
+
+
+1.2添加用户和组
+################################################################
+groupadd -g 1001 oinstall
+groupadd -g 1002 dba
+useradd -u 1002 -g oinstall -G dba oracle
+echo "oracle" | passwd --stdin oracle
+
+1.3创建安装路径
+################################################################
+mkdir -p /u01
+chown -R oracle:oinstall /u01
+
+1.4修改资源限制和登陆限制以及内核参数
+################################################################
+cp -p /etc/security/limits.conf /etc/security/limits.conf.bak
+cat >> /etc/security/limits.conf <<EOF
+## security for user oracle and grid
+oracle soft nproc 2047
+oracle hard nproc 16384
+oracle soft nofile 1024
+oracle hard nofile 65536
+EOF
+
+cp -p /etc/pam.d/login /etc/pam.d/login.bak
+cat >> /etc/pam.d/login <<EOF
+##for oracle
+
+session required pam_limits.so
+EOF
+
+
+----------------------------------------------------------------------------
+-！！！注意修改，根据系统的内存定
+----------------------------------------------------------------------------
+cp -p /etc/sysctl.conf /etc/sysctl.conf.bak
+cat >> /etc/sysctl.conf <<EOF
+## system paramenter for oracle database
+fs.aio-max-nr = 1048576
+fs.file-max = 6815744
+kernel.shmall = 2097152
+kernel.shmmax = 536870912
+kernel.shmmni = 4096
+kernel.sem = 250 32000 100 128
+net.ipv4.ip_local_port_range = 9000 65500
+net.core.rmem_default = 262144
+net.core.rmem_max = 4194304
+net.core.wmem_default = 262144
+net.core.wmem_max = 1048586
+EOF
+
+modprobe bridge
+lsmod|grep bridge
+sysctl -p
+
+1.5安装依赖包
+################################################################
+mount /dev/cdrom /media
+cp -r /etc/yum.repos.d /etc/yum.repos.d.bak
+cd /etc/yum.repos.d
+rm -fr *
+cat >> CentOS-Media.repo <<EOF
+[local]
+name=Local yum source
+baseurl=file:///media
+gpgcheck=0
+enabled=1
+EOF
+
+yum -y install \
+unzip \
+binutils \
+compat-libstdc++-33 \
+elfutils-libelf \
+elfutils-libelf-devel \
+expat \
+gcc \
+gcc-c++ \
+glibc \
+glibc-common \
+glibc-devel \
+glibc-headers \
+libaio \
+libaio-devel \
+libgcc \
+libstdc++ \
+libstdc++-devel \
+make \
+ksh \
+sysstat \
+unixODBC \
+unixODBC‐devel
+
+
+
+
+-------以下步骤使用oracle用户-------
+
+
+
+
+1.5修改oracle用户的变量
+################################################################
+cp -p /home/oracle/.bash_profile /home/oracle/.bash_profile.bak
+cat >> /home/oracle/.bash_profile <<EOF
+
+## environment for oracle database
+export ORACLE_BASE=/u01/app/oracle
+export ORACLE_HOME=/u01/app/oracle/product/11.2.0/db_1
+export ORACLE_SID=ORCL！！！注意修改
+export ORACLE_TERM=xterm
+export PATH=/usr/sbin:\$PATH
+export PATH=\$ORACLE_HOME/bin:\$PATH
+EOF
+source /home/oracle/.bash_profile
+
+
+1.6安装数据库软件
+################################################################
+安装包在/opt/database/
+/opt/database/runInstaller \
+-silent \
+-debug  \
+-ignorePrereq \
+oracle.install.responseFileVersion=/oracle/install/rspfmt_dbinstall_response_schema_v11_2_0 \
+oracle.install.option=INSTALL_DB_SWONLY \
+ORACLE_HOSTNAME=host03 \！！！注意修改
+DECLINE_SECURITY_UPDATES=true \
+UNIX_GROUP_NAME=oinstall \
+INVENTORY_LOCATION=/u01/app/oraInventory  \
+SELECTED_LANGUAGES=en \
+ORACLE_HOME=/u01/app/oracle/product/11.2.0/db_1 \
+ORACLE_BASE=/u01/app/oracle \
+oracle.install.db.InstallEdition=EE  \
+oracle.install.db.DBA_GROUP=dba \
+oracle.install.db.OPER_GROUP=oinstall
+
+----------------------------------------------------------------------------
+-问题一 相信这个问题也是很多人也会遇到
+-[FATAL] [INS-32035] Unable to create a new central inventory at the specified location.
+-CAUSE: The central inventory location provided is not empty.
+-ACTION: Please provide another location for the inventory, or clean up the current location.
+-解决方法:
+-使用root vim /etc/oraInst.loc 加入
+-inventory_loc=/u01/app/oraInventory
+-inst_group=oinstall
+----------------------------------------------------------------------------
+-当出现
+-The following configuration scripts need to be executed as the "root" user.
+- #!/bin/sh
+- #Root scripts to run
+-
+-/opt/oracle/orainstRoot.sh
+-/opt/oracle/product/11.2.0/dbhome_1/root.sh
+-To execute the configuration scripts:
+-         1. Open a terminal window
+-         2. Log in as "root"
+-         3. Run the scripts
+-         4. Return to this window and hit "Enter" key to continue
+-
+-Successfully Setup Software.------------->安装成功
+-执行提示的shell
+----------------------------------------------------------------------------
+
+
+1.7静默装库
+################################################################
+
+----------------------------------------------------------------------------
+-注意：修改数据库名
+----------------------------------------------------------------------------
+
+dbca -silent -createDatabase -templateName General_Purpose.dbc -gdbname ORCL -sid ORCL -responseFile NO_VALUE -characterSet AL32UTF8！！！注意修改数据库名和字符集
+
+
+1.8静态监听文件
+################################################################
+vi /u01/app/oracle/product/11.2.0/db_1/network/admin/listener.ora
+# listener.ora Network Configuration File: /tomcat/app/oracle/product/11.2.0/db_1/network/admin/listener.ora
+# Generated by Oracle configuration tools.
+
+SID_LIST_LISTENER =
+  (SID_LIST =
+   (SID_DESC =
+    (GLOBAL_DBNAME = ORCL)！！！注意修改
+    (ORACLE_HOME = /u01/app/oracle/product/11.2.0/db_1)
+    (SID_NAME = ORCL)！！！注意修改
+    )
+ )
+
+
+LISTENER =
+  (DESCRIPTION_LIST =
+    (DESCRIPTION =
+      (ADDRESS = (PROTOCOL = IPC)(KEY = EXTPROC1521))
+      (ADDRESS = (PROTOCOL = TCP)(HOST = host04)(PORT = 1521))！！！注意修改
+    )
+  )
+
+ADR_BASE_LISTENER = /u01/app/oracle
+
+
+1.9 启动监听登陆数据库
+################################################################
+lsnrctl start
+sqlplus / as sysdba
+
+-------------
+-进入sql窗口
+-------------
+
+1.10 开启归档配置归档路径
+startup mount;
+alter database archivelog;
+alter database force logging;
+alter database open;
+host mkdir -p /u01/app/oracle/oradata/ORCL/archive_log/pr_log/
+ALTER system SET log_archive_dest_1='LOCATION=/u01/app/oracle/oradata/ORCL/archive_log/pr_log' scope=spfile;
+
+
+
+
+
+2、主库准备
+
+
+2.1主库创建路径
+################################################################
+mkdir -p /u01/app/oracle/oradata/ORCL/archive_log/st_log/
+
+
+2.2主库修改监听文件和服务名文件
+################################################################
+vi /u01/app/oracle/product/11.2.0/db_1/network/admin/listener.ora
+
+----------------------------------------------------------------------------
+-监听的是hostname，hostname对应俩个ip，分别是内网和外网
+-修改GLOBAL_DBNAME为DB_UNIQUE_NAME
+-主库原来的ORCL改为ORCLPR
+-备库原来的ORCL改为ORCLST
+----------------------------------------------------------------------------
+
+# listener.ora Network Configuration File: /tomcat/app/oracle/product/11.2.0/db_1/network/admin/listener.ora
+# Generated by Oracle configuration tools.
+
+SID_LIST_LISTENER =
+  (SID_LIST =
+   (SID_DESC =
+    (GLOBAL_DBNAME = ORCLPR)！！！注意修改
+    (ORACLE_HOME = /u01/app/oracle/product/11.2.0/db_1)
+    (SID_NAME = ORCL)！！！注意修改
+    )
+ )
+
+
+LISTENER =
+  (DESCRIPTION_LIST =
+    (DESCRIPTION =
+      (ADDRESS = (PROTOCOL = IPC)(KEY = EXTPROC1521))
+      (ADDRESS = (PROTOCOL = TCP)(HOST = host04)(PORT = 1521))！！！注意修改
+    )
+  )
+
+ADR_BASE_LISTENER = /u01/app/oracle
+
+
+----------------------------------------------------------------------------
+-修改服务文件
+-服务文件使用的是内网ip，传输快
+-服务名文件主库和备库使用一样的。
+----------------------------------------------------------------------------
+vi /u01/app/oracle/product/11.2.0/db_1/network/admin/tnsnames.ora
+
+
+# tnsnames.ora Network Configuration File: /u01/app/oracle/product/11.2.0/db_1/network/admin/tnsnames.ora
+# Generated by Oracle configuration tools.
+
+
+ORCLPR =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.56.4)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVICE_NAME = ORCLPR)！！！注意修改
+    )
+  )
+
+ORCLST =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.56.5)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVICE_NAME = ORCLST)！！！注意修改
+    )
+  )
+
+
+2.3主库备份
+################################################################
+mkdir -p  /u01/backup/
+
+rman target / <<EOF
+run {
+allocate channel c1 type disk maxpiecesize=20g;
+allocate channel c2 type disk maxpiecesize=20g;
+sql "alter system archive log current";
+backup database format '/u01/backup/db_%d_%s_%p_%u_%T.dbf';
+backup archivelog all format '/u01/backup/arc_%d_%u_%T.arc' delete all input;
+backup current controlfile format '/u01/backup/ctf_%d_%u_%T.ctl';
+release channel c1;
+release channel c2;
+crosscheck backup;
+delete noprompt obsolete;
+delete noprompt expired backup;
+}
+EOF
+
+
+2.4主库上为备库建立控制文件
+################################################################
+alter database create standby controlfile as '/u01/backup/standby.ctl' reuse;
+
+
+2.5主库建立pfile
+create pfile from spfile;
+
+
+2.6主库修改参数
+################################################################
+alter system set db_unique_name=ORCLPR scope=spfile;！！！注意修改,可以不改使用SID
+alter system set log_archive_config='dg_config=(ORCLPR,ORCLST)';
+alter system set log_archive_dest_1='location=/u01/app/oracle/oradata/ORCL/archive_log/pr_log/  valid_for=(online_logfiles,all_roles)  db_unique_name=ORCLPR';
+alter system set log_archive_dest_2='service=ORCLST lgwr async valid_for=(online_logfiles,primary_role)  db_unique_name=ORCLST';
+alter system set log_archive_dest_3='location=/u01/app/oracle/oradata/ORCL/archive_log/st_log/ valid_for=(standby_logfiles,standby_role) db_unique_name=ORCLPR';
+alter system set log_archive_max_processes=6;
+alter system set fal_server=ORCLST;
+alter system set fal_client=ORCLPR;
+alter system set standby_file_management=auto;
+
+
+3、DG备库准备
+
+3.1备库安装，仅安装数据库软件（环境和主库一样）
+################################################################
+
+----------------------------------------------------------------------------
+-配置开启监听
+----------------------------------------------------------------------------
+
+
+3.2备库创建相关路径
+################################################################
+mkdir -p /u01/app/oracle/admin/ORCL/adump
+mkdir -p /u01/app/oracle/flash_recovery_area/ORCL/
+mkdir -p /u01/app/oracle/oradata/ORCL/archive_log/pr_log/
+mkdir -p /u01/app/oracle/oradata/ORCL/archive_log/st_log/
+
+
+
+3.3备库复制相关文件
+################################################################
+scp oracle@192.168.56.4:/u01/app/oracle/product/11.2.0/db_1/dbs/initORCL.ora /u01/app/oracle/product/11.2.0/db_1/dbs/
+scp oracle@192.168.56.4:/u01/app/oracle/product/11.2.0/db_1/dbs/orapwORCL /u01/app/oracle/product/11.2.0/db_1/dbs/
+scp -r oracle@192.168.56.4:/u01/backup/ /u01/
+scp oracle@192.168.56.4:/u01/backup/standby.ctl /u01/app/oracle/flash_recovery_area/ORCL/control02.ctl
+cp /u01/app/oracle/flash_recovery_area/ORCL/control02.ctl /u01/app/oracle/oradata/ORCL/control01.ctl
+
+
+3.4备库参数文件修改或添加以下内容
+################################################################
+vi /u01/app/oracle/product/11.2.0/db_1/dbs/initORCL.ora
+
+# 添加
+db_unique_name=ORCLST
+log_archive_config='dg_config=(ORCLPR,ORCLST)'
+log_archive_dest_2='service=ORCLPR lgwr async valid_for=(online_logfiles,primary_role)  db_unique_name=ORCLPR'
+log_archive_dest_3='location=/u01/app/oracle/oradata/ORCL/archive_log/st_log valid_for=(standby_logfiles,standby_role) db_unique_name=ORCLST'
+log_archive_max_processes=6
+fal_server=ORCLPR
+fal_client=ORCLST
+standby_file_management=auto
+#避免新备库的redo放到闪回区中
+log_file_name_convert='/u01/app/oracle/oradata/ORCL/','/u01/app/oracle/oradata/ORCL/'
+
+#修改
+*.log_archive_dest_1='LOCATION=/u01/app/oracle/oradata/ORCL/archive_log/pr_log valid_for=(online_logfiles,all_roles)  db_unique_name=ORCLST'
+
+
+#不动
+ORCL.__db_cache_size=104857600
+ORCL.__java_pool_size=4194304
+ORCL.__large_pool_size=4194304
+ORCL.__oracle_base='/u01/app/oracle'#ORACLE_BASE set from environment
+ORCL.__pga_aggregate_target=163577856
+ORCL.__sga_target=255852544
+ORCL.__shared_io_pool_size=0
+ORCL.__shared_pool_size=134217728
+ORCL.__streams_pool_size=0
+*.audit_file_dest='/u01/app/oracle/admin/ORCL/adump'
+*.audit_trail='db'
+*.compatible='11.2.0.0.0'
+*.control_files='/u01/app/oracle/oradata/ORCL/control01.ctl','/u01/app/oracle/flash_recovery_area/ORCL/control02.ctl'
+*.db_block_size=8192
+*.db_domain=''
+*.db_name='ORCL'
+*.db_recovery_file_dest='/u01/app/oracle/flash_recovery_area'
+*.db_recovery_file_dest_size=4070572032
+*.diagnostic_dest='/u01/app/oracle'
+*.dispatchers='(PROTOCOL=TCP) (SERVICE=ORCLXDB)'
+*.memory_target=417333248
+*.open_cursors=300
+*.processes=150
+*.remote_login_passwordfile='EXCLUSIVE'
+*.undo_tablespace='UNDOTBS1'
+
+
+3.5备库创建
+################################################################
+startup nomount;
+create spfile from pfile;
+alter database mount standby database;
+
+
+3.6备库使用备份恢复
+################################################################
+rman target /
+restore database;
+exit;
+
+
+3.7备库恢复
+################################################################
+alter database recover managed standby database disconnect from session;
+
+
+
+
+
+
+3.8主、备库添加redo文件
+################################################################
+alter database add standby logfile '/u01/app/oracle/oradata/ORCL/std_redo01.log' size 50m;
+alter database add standby logfile '/u01/app/oracle/oradata/ORCL/std_redo02.log' size 50m;
+alter database add standby logfile '/u01/app/oracle/oradata/ORCL/std_redo03.log' size 50m;
+alter database add standby logfile '/u01/app/oracle/oradata/ORCL/std_redo04.log' size 50m;
+
+

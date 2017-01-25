@@ -1,0 +1,25 @@
+export ORACLE_SID=orcl 
+sqlplus / as sysdba 
+startup 
+quit 
+
+export ORACLE_SID=RTS 
+sqlplus / as sysdba 
+startup 
+quit 
+
+export ORACLE_SID=orcl 
+sqlplus / as sysdba 
+startup 
+quit 
+
+
+
+
+
+
+
+
+sqlplus /nolog
+conn / as sysdba
+shutdown 

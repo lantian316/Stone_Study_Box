@@ -1,0 +1,348 @@
+#################################
+#修改主机名和IP对应（rac1,rac2）#
+#################################
+cp -p /etc/hosts /etc/hosts.bak
+cat >> /etc/hosts <<EOF
+##ADD HOSTS FOR RAC
+
+#ip of public
+192.168.200.201           rac1
+192.168.200.202           rac2
+
+#ip of private
+10.0.0.11              rac1-pri
+10.0.0.12              rac2-pri
+
+#ip of virtual
+192.168.200.103          rac1-vip
+192.168.200.104          rac2-vip
+
+#ip of scan-cluster
+192.168.200.200          rac
+EOF
+
+
+#############################################
+#添加grid和oracle用户及所需的组（rac1,rac2）#
+#############################################
+groupadd -g 1101 oinstall
+groupadd -g 1102 dba
+groupadd -g 1201 asmadmin
+groupadd -g 1202 asmdba
+groupadd -g 1203 asmoper
+useradd -u 1001 -g oinstall -G asmadmin,asmdba,asmoper,dba grid
+echo "grid" | passwd --stdin grid
+useradd -u 1002 -g oinstall -G dba,asmdba,asmadmin oracle
+echo "oracle" | passwd --stdin oracle
+
+
+
+#####################################
+#创建安装路径并修改权限（rac1,rac2）#
+#####################################
+mkdir -p /u01/app/grid
+mkdir -p /u01/app/11.2.0/grid/
+mkdir -p /u01/app/oracle/product/11.2.0/db_1
+chown -R grid:oinstall /u01
+chown -R oracle:oinstall /u01/app/oracle
+chmod -R 775 /u01
+
+
+
+##########################################################
+#修改grid和oracle的环境变量（rac1,rac2注意ASM和数据库名）#
+##########################################################
+cp -p /home/oracle/.bash_profile /home/oracle/.bash_profile.bak
+cat >> /home/oracle/.bash_profile <<EOF
+
+
+#environment for oracle database
+
+
+export ORACLE_BASE=/u01/app/oracle
+export ORACLE_HOME=\$ORACLE_BASE/product/11.2.0/db_1
+export ORACLE_SID=rac2
+export ORACLE_TERM=xterm
+export PATH=/usr/sbin:\$PATH
+export PATH=\$ORACLE_HOME/bin:\$PATH
+export LD_LIBRARY_PATH=\$ORACLE_HOME/lib:/lib:/usr/lib
+export CLASSPATH=$ORACLE_HOME/JRE:$ORACLE_HOME/jlib:$ORACLE_HOME/rdbms/jlib
+export THREADS_FLAG=native
+export NLS_DATE_FORMAT='yyyy/mm/dd hh24:mi:ss'
+EOF
+source /home/oracle/.bash_profile
+
+
+
+cp -p /home/grid/.bash_profile /home/grid/.bash_profile.bak
+cat >> /home/grid/.bash_profile <<EOF
+
+
+#environment for grid cluster software
+
+export ORACLE_SID=+ASM2
+export ORACLE_BASE=/u01/app/grid
+export ORACLE_HOME=/u01/app/11.2.0/grid
+export ORACLE_TERM=xterm
+export PATH=/usr/sbin:\$PATH
+export PATH=\$ORACLE_HOME/bin:\$PATH
+export NLS_DATE_FORMAT='yyyy/mm/dd hh24:mi:ss'
+EOF
+source /home/grid/.bash_profile
+
+
+##################################################################################################
+##GRID 的Oracle Base 和Oracle  Home
+##不过Grid 的ORACLE_BASE ##和ORACLE_HOME有所不同，GRID的ORACLE_HOME不能是ORACLE_BASE的子目录，否则安装会报错。
+##ORACLE_BASE:/oracle/app/grid
+##ORACLE_HOME:/oracle/app/11.2/grid
+
+##在GRID安装过程的root.sh会把GRID所在目录的属主改成root，而且会一直修改到顶层目录，这样一来就会影响到其他的Oracle软件，
+##所以，不能把GRID的oracle_home放到ORACLE_BASE的子目录中。对于GRID来说，这两##个目录是平行的
+
+##ORACLE_BASE、ORACLE_HOME环境变量
+##grid、Oracle 两个用户各自的设置是不同的：
+##GRID用户的环境变量设置：
+##export ORACLE_BASE=/u01/app/grid
+##export ORACLE_HOME=/u01/app/11.2/grid
+##path=$ORACLE_HOME/bin:$PATH:$HOME/bin
+
+##oracle 用户的环境变量设置：
+##export ORACLE_BASE=/u01/app/oracle
+##export ORACLE_HOME=$ORACLE_BASE/product/11.2.0/dbhome_1
+##path=$ORACLE_HOME/bin:$PATH:$HOME/bin
+##################################################################################################
+
+
+
+#########################################
+#修改资源权限控制和登录限制（rac1,rac2）#
+#########################################
+cp -p /etc/security/limits.conf /etc/security/limits.conf.bak
+cat >> /etc/security/limits.conf <<EOF
+##security for user oracle and grid
+oracle soft nproc 2047
+oracle hard nproc 16384
+oracle soft nofile 1024
+oracle hard nofile 65536
+
+grid soft nproc 2047
+grid hard nproc 16384
+grid soft nofile 1024
+grid hard nofile 65536
+EOF
+
+
+cp -p /etc/pam.d/login /etc/pam.d/login.bak
+cat >> /etc/pam.d/login <<EOF
+#for oracle
+session required pam_limits.so
+EOF
+
+
+###############################
+#修改用户调用权限（rac1,rac2）#
+###############################
+cp -p /etc/profile /etc/profile.bak
+cat >> /etc/profile <<EOF
+
+##SHELL FOR USER ORACLE AND GRID
+
+if [ \$USER = "oracle" ] || [ \$USER = "grid" ]; then
+        if [ \$SHELL = "/bin/ksh" ]; then
+         ulimit -p 16384
+              ulimit -n 65536
+        else
+              ulimit -u 16384 -n 65536
+        fi
+        umask 022
+fi
+EOF
+source /etc/profile
+
+
+
+###########################
+#修改内核参数（rac1,rac2）#
+###########################
+cp -p /etc/sysctl.conf /etc/sysctl.conf.bak
+cat >> /etc/sysctl.conf <<EOF
+
+
+##system paramenter for oracle database
+
+fs.aio-max-nr = 1048576
+fs.file-max = 6815744
+kernel.shmmni = 4096
+kernel.sem = 250 32000 100 128
+net.ipv4.ip_local_port_range = 9000 65500
+net.core.rmem_default = 262144
+net.core.rmem_max = 4194304
+net.core.wmem_default = 262144
+net.core.wmem_max = 1048586
+EOF
+
+modprobe bridge
+lsmod|grep bridge
+sysctl -p
+
+##################################################################################################
+##shmall和shmmax
+##kernel.shmall 参数是控制共享内存页数 。Linux 共享内存页大小为4KB,
+##共享内存段的大小都是共享内存页大小的整数倍。
+##一个共享内存段的最大大小是16G，那么需要共享内存页数是 16GB/4KB=16777216KB/4KB=4194304 （页），
+##也就是64Bit 系统下16GB 物理内存，设置 kernel.shmall = 4194304 才符合要求(几乎是原来设置2097152的两倍)。
+##这时可以将shmmax 参数调整到 16G 了，同时可以修改SGA_MAX_SIZE 和SGA_TARGET 为 12G
+##（您想设置的SGA 最大大小，当然也可以是2G~14G 等，还要协调PGA参数及OS 等其他内存使用，不能设置太满，比如16G）。
+
+##shmall 是全部允许使用的共享内存大小，
+##shmmax 是单个段允许使用的大小。这两个可以设置为内存的 90%。例如 16G 内存，16*1024*1024*1024*90% = 15461882265，
+##shmall 的大小为 15461882265/4/1024(getconf PAGESIZE可得到) = 3774873。
+##总的来说，shmall这个参数和你具体硬件关系不太大，只是大于8G的时候调整到合适你的内存容量大小，小于8G就不用了
+##################################################################################################
+
+
+
+
+##########################
+#关闭ntp校时（rac1,rac2）#
+##########################
+service ntpd stop
+chkconfig ntpd off --level 35
+cp /etc/ntp.conf /etc/ntp.conf.bak
+rm -rf /etc/ntp.conf
+
+######################################
+#修改本地yum源安装所需包（rac1,rac2）#
+######################################
+mount /dev/cdrom /media
+cp -r /etc/yum.repos.d /etc/yum.repos.d.bak
+cd /etc/yum.repos.d
+rm -fr *
+cat >> CentOS-Media.repo <<EOF
+[local]
+name=Local yum source
+baseurl=file:///media
+		file:///media/CentOS_6.4_Final
+gpgcheck=0
+enabled=1
+EOF
+
+yum clean all
+yum update
+
+yum -y install \
+binutils \
+compat-libstdc++-33 \
+compat-libcap1 \
+elfutils-libelf \
+elfutils-libelf-devel \
+expat \
+gcc \
+gcc-c++ \
+glibc \
+glibc-common \
+glibc-devel \
+glibc-headers \
+libaio \
+libaio-devel \
+libgcc \
+libstdc++ \
+libstdc++-devel \
+make \
+sysstat \
+unixODBC \
+unixODBC‐devel \
+tigervnc-server
+
+
+##安装pdksh-5.2.14-1.i386.rpm（rac1,rac2）
+rpm -ivh pdksh-5.2.14-1.i386.rpm  --nodeps
+
+#################
+#配置vnc（rac1）#
+#################
+cat >> /etc/sysconfig/vncservers <<EOF
+ VNCSERVERS="1:grid"
+ VNCSERVERARGS[2]="-geometry 800x600 -nolisten tcp -localhost"
+EOF
+chkconfig vncserver on --level 35
+chkconfig iptables off --level 35
+
+
+
+
+###############################
+#Udev配置共享磁盘（rac1,rac2）#
+###############################
+for a in b c d e f g h i;
+do
+cat >> /etc/udev/rules.d/99-oracle-asmdevices.rules <<EOF
+KERNEL=="sd*", BUS=="scsi", PROGRAM=="/sbin/scsi_id -g -u -d /dev/\$name", RESULT=="`scsi_id -g -u -d /dev/sd$a`", NAME="asm-disk$a", OWNER="grid", GROUP="oinstall", MODE="0660"
+EOF
+done
+
+start_udev
+检测是否绑定成功
+ll /dev/asm-disk*
+有asm-diskb，asm-diskc，asm-diskd，asm-diske为成功
+
+
+
+
+
+
+################################
+#配置oracle，grid 用户SSH对等性#
+################################
+a)oracle用户(rac1、rac2)
+ssh-keygen -t rsa
+ssh-keygen -t dsa
+
+b)制作验证文件（rac1）
+cat /home/oracle/.ssh/id_rsa.pub >> /home/oracle/.ssh/authorized_keys
+cat /home/oracle/.ssh/id_dsa.pub >> /home/oracle/.ssh/authorized_keys
+ssh rac2 cat /home/oracle/.ssh/id_rsa.pub >> /home/oracle/.ssh/authorized_keys
+ssh rac2 cat /home/oracle/.ssh/id_dsa.pub >> /home/oracle/.ssh/authorized_keys
+scp /home/oracle/.ssh/authorized_keys rac2:/home/oracle/.ssh/
+
+Grid用户（rac1）
+su root
+cp -r /home/oracle/.ssh /home/grid/
+chown grid:oinstall /home/grid/.ssh -R
+scp -r /home/grid/.ssh 192.168.200.202:/home/grid/
+
+su root（rac2）
+chown grid:oinstall /home/grid/.ssh -R
+
+c)oracle和grid执行同步（rac1，rac2）
+ssh rac1 date
+ssh rac2 date
+ssh rac1-pri date
+ssh rac2-pri date
+第一次需要输密码，直到以后不用输密码为配置成功。
+d) 查看时间是否同步（rac1）
+ date; ssh rac1 date
+ date; ssh rac2 date
+时间差不超过10秒
+
+
+
+
+七、图形化安装grid注意事项（rac1）
+1、使用/etc/hosts,就不选gns
+2、如果找不到sam候选盘尝试以下办法
+a)磁盘清理Header状态
+dd if=/dev/zero of=/dev/oracleasm/asm-diskb bs=4096 count=1
+b)权限分配
+chown -R grid:oinstall /dev/oracleasm
+3、执行root.sh脚本注意事项（rac1）
+a)oracle11.2.0.1经典bug
+执行到adding daemon to inittab 时必须在另一个窗口执行
+/bin/dd if=/var/tmp/.oracle/npohasd of=/dev/null bs=1024 count=1
+要多刷几次，开始时没有/var/tmp/.oracle/npohasd路径，一直到不提示没有/var/tmp/.oracle/npohasd路径
+b)执行root.sh失败用于删除以前的CRS配置
+perl /u01/app/11.2.0/grid/crs/install/rootcrs.pl -verbose -deconfig -force
+
+
+
