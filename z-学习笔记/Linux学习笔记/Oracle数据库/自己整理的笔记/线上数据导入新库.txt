@@ -1,0 +1,86 @@
+create directory dmp as '/oracledmp';
+
+
+
+select * from dba_directories where directory_name='DATA_PUMP_DIR';
+
+
+
+impdp u_youwa/pw_youwa890 directory=dmp dumpfile=u_youwa1212.dmp full=y;
+
+SELECT directory_name, grantee, privilege FROM user_tab_privs t, all_directories d WHERE t.table_name(+) = d.directory_name ORDER BY 1, 2, 3;
+
+impdp u_youwa/pw_youwa890 directory=dmp dumpfile=u_youwa1212.dmp remap_tablespace=TSPOSP:RTS full=y;
+
+export ORACLE_SID=RTS; sqlplus / as sysdba
+
+
+impdp u_youwa/pw_youwa890 directory=dmp dumpfile=u_youwa1212.dmp remap_tablespace=TSPOSP:RTS,TS_YOUWA:RTS full=y;
+
+desc u_youwa.pmmerinf;
+select * from u_youwa.pmmerinf where mercid=485584059509293;
+
+select MERCID,MERCNAM,MERTYP from u_youwa.pmmerinf where mercid=485584059509293;
+
+
+a13243546&
+
+scp root@10.10.10.10:/opt/soft/nginx-0.5.38.tar.gz /opt/soft/
+
+scp 70posadm_apache.gz root@172.25.0.128:/tmp/
+
+scp /opt/soft/nginx-0.5.38.tar.gz root@10.10.10.10:/opt/soft/scptest
+
+
+------------------------------线上数据导入新库-------------------------------------------------
+建库
+[oracle@BBbao_Test_Oracle response]$ /u01/app/oracle/product/11.2.0/db_1/bin/dbca -silent -responseFile /usr/local/src/database/response/my_dbcatest.rsp
+
+以管理员连库
+[oracle@BBbao_Test_Oracle response]$ export ORACLE_SID=RTSTEST; rlwrap sqlplus / as sysdba
+
+新建表空间
+SYS@RTSTEST > create tablespace "RTSTEST1"
+  2  datafile '/u01/app/oracle/oradata/RTSTEST/internalTest.dbf'
+  3  size 1000M
+  4  autoextend on next 200M
+  5  maxsize unlimited
+  6  logging online permanent;
+
+Tablespace created.
+
+########################################
+创建用户并指定默认表空间
+SYS@RTSTEST > create user u_youwatest identified by pw_youwatest890 default tablespace RTSTEST1;
+
+------------------------------------------------
+|  重新给用户指定表空间                           |
+|  alter user u_youwa default tablespace orcl; |
+------------------------------------------------
+
+给用户授权
+grant connect,resource to u_youwatest;
+grant create session to u_youwatest;
+
+SYS@RTSTEST > grant connect,resource,create session to u_youwatest;
+
+GRANT CREATE USER,DROP USER,ALTER USER ,CREATE ANY VIEW ,
+    DROP ANY VIEW,EXP_FULL_DATABASE,IMP_FULL_DATABASE,
+    DBA,CONNECT,RESOURCE,CREATE SESSION TO u_youwa;
+
+netstat -ultnp | grep -E '(ora|tnslsnr)'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

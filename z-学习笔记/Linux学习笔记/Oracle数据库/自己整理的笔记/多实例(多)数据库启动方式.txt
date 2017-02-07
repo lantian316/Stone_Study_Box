@@ -1,22 +1,28 @@
-export ORACLE_SID=orcl 
+lsnrctl status
+查看侦听状态
+lsnrctl start
+启动1521端口监听
+lsnrctl stop
+关闭端口监听
+
+
+启动orcl实例
+export ORACLE_SID=orcl
 sqlplus / as sysdba 
 startup 
-quit 
+quit
 
+启动RTS实例
 export ORACLE_SID=RTS 
 sqlplus / as sysdba 
 startup 
 quit 
 
+启动orcl实例
 export ORACLE_SID=orcl 
 sqlplus / as sysdba 
 startup 
 quit 
-
-
-
-
-
 
 
 

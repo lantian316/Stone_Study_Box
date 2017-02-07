@@ -1,0 +1,123 @@
+一、oracle安装
+    1、yum搭建，并安装所需要的依赖包
+    2、编辑配置文件sysctl.conf，limits.conf
+    3、创建用户组和用户
+    4、创建目录，设置权限
+    5、编辑hosts文件
+    6、环境变量的设置.bash_profile
+    7、安装oracle软件
+    8、dbca创建数据库
+    9、rlwrap辅助软件的安装
+    10、设置sqlplus的提示符
+二、oracle的安装目录介绍
+    1、$ORACLE_BASE
+        /u01/app/oracle
+            admin
+            diag
+            product
+            fast_recovery_area
+            oradata
+    2、$ORACLE_HOME
+        /u01/app/oracle/product/11.2.0/db_1/
+            dbs
+            sqlplus
+            rdbms
+            deinstall
+            OPatch
+    3、directory
+三、sqlplus命令
+    1、sqlplus和sql的区别
+    2、掌握常用sqlplus命令
+        @
+        start
+        /
+        append
+        list
+        del
+        show
+        set
+        connect
+        disconnect
+        input
+        save
+        exit
+        startup
+        spool
+        shotdown
+        column
+    3、使用help index查看sqlplus的命令帮助
+
+四、数据库的启动和关闭
+    1、启动
+        startup
+    2、启动过程
+        shutdown --> nomout(开启实例，分配内存和启动后台进程) --> mount --> open
+
+        1)shutdown --> nomount
+            startup nomount
+            select status from v$instance;
+            ps -ef | grep ora [查看后台进程]
+            此阶段已分配内存和启动后台进程
+
+            nomount --> mount
+            alter database mount;
+            注意:不能从nomount直接到open
+
+            mount --> open
+            alter database open;
+            select status from v$instance;
+
+        2)shutdown --> mount
+            startup mount
+            select status from v$instance;
+
+            mount --> open
+            alter database open;
+            select status from v$instance;
+
+        3)shutdown --> open
+            startup
+            select status from v$instance;
+
+        在nomount阶段，启动实例，使用的是参数文件(spfile)
+        在mount阶段，加载数据库，使用的是控制文件(control file)
+        在open阶段，打开数据库，使用数据文件和日志文件(data file 和redo log file)
+
+        当参数文件丢失时，不能启动实例，即不能nomount，出现如下错误：
+        ORA@ORACL > startup
+        ORA-01078:  failure in processing system parameters
+        LRM-00109:  could not open parameter file
+        '/u01/app/oracle/product/11.2.0/db_1/dbs/initorcl.ora'
+
+        当控制文件丢失时，不能加载数据库，即不能mount，出现如下错误：
+        ORA-00205:  error in identifying control file，check alert log for more info
+
+        当数据文件或重做日志文件丢失时，不能打开数据库，即不能open，出现如下错误：
+        1、缺少数据文件
+            ORA-01157：  cannot identify/lock data file 4 - see DBWR trace file
+            ORA-01110:   data file 4:'/u01/app/oracle/oradata/orcl/users01.dbf'
+        2、缺少重做日志文件
+            ORA-03113:  end-of-file on communication channel
+            Process ID: 29351
+            Session ID: 1 Serial number: 5
+
+    3、数据库的关闭
+        1)立即关闭数据库
+            shutdown immediate  [既快速又安全]
+        2)强制关闭数据库
+            shutdown abort
+        3)事物关闭数据库
+            shutdown transactional
+        4)常规关闭数据库
+            shutdown normal <==>[等价于] shutdown
+
+        关闭数据库命令的区别
+Database Behavior                             ABORT          IMMEDIATE        TRANSACTIONAL    NORMAL
+Permits new user connections                   No                No                 No           No
+Waits until current sessions end               No                No                 No           YES
+Waits until current transactions end           No                No                 YES          YES
+Performs a checkpoint and closes open files    No                YES                YES          YES
+
+五、参数文件
+
+

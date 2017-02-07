@@ -268,6 +268,9 @@ dbshut /u01/app/oracle/product/11.2.0/db_1/
 建立表空间
 export ORACLE_SID=RTS; sqlplus / as sysdba
 
+export ORACLE_SID=RTSTEST; rlwrap sqlplus / as sysdba
+
+
 /u01/app/oracle/oradata/RTS/movieinvestWeb
 
 创建表空间这里要一行一行输入，最后以分号为结尾。
