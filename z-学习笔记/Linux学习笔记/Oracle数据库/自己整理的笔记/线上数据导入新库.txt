@@ -52,7 +52,7 @@ Tablespace created.
 ########################################
 创建用户并指定默认表空间
 SYS@RTSTEST > create user u_youwatest identified by pw_youwatest890 default tablespace RTSTEST1;
-
+pw_youwa890
 ------------------------------------------------
 |  重新给用户指定表空间                           |
 |  alter user u_youwa default tablespace orcl; |

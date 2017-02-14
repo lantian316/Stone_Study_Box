@@ -1,0 +1,38 @@
+128上安装步骤
+
+cd /home/software/
+tar -zxf jdk-7u79-linux-x64.stone.gz
+mv jdk1.7.0_79/ /usr/local/
+cd /usr/local/
+ln -s jdk1.7.0_79/ jdk
+
+修改java环境变量
+vim /etc/profile.d/jdk.sh
+添加如下内容
+JAVA_HOME=/usr/local/jdk
+JRE_HOME=/usr/local/jdk/jre
+PATH=$JAVA_HOME/bin:$JRE_HOME/bin:$PATH
+CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar:$JRE_HOME/lib
+export JAVA_HOME JRE_HOME PATH CLASSPATH
+保存退出，然后重载此文件，使环境变量立刻生效
+source /etc/profile.d/jdk.sh
+
+安装tomcat
+cd /home/software/
+tar -zxf apache.tomcat.stone.tar.gz
+mv apache-tomcat/ /usr/local/
+cd /usr/local/
+ln -s apache-tomcat/ tomcat
+
+修改tomcat的环境变量
+"tomcat/bin/catalina.sh" 、 "tomcat/bin/setclasspath.sh" 、 "tomcat/conf/server.xml"
+
+
+安装zookeeper
+cd /home/software/
+tar -zxf zookeeper-3.4.9.tar.gz
+mv zookeeper-3.4.9/ /usr/local/
+cd /usr/local/
+ln -s zookeeper-3.4.9/ zookeeper
+
+
