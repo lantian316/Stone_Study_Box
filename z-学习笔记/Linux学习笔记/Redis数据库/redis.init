@@ -1,0 +1,69 @@
+#!/bin/bash
+# Name:redisd
+# Version:0.0.1
+# Author:Stone
+# QQ:283302410
+# Email:lantian316@163.com
+# Blog:http://blog.linuxnb.com
+# Linux Command help:http://man.linuxnb.com
+# Datetime:2016-07-26 22:17:28
+# Redis - Startup script for redis
+# chkconfig: - 85 15
+# description: Redis Server
+# Processname: redisd
+# Config: /usr/local/redis/etc/redis.conf
+# Pidfile: /var/run/redis.pid
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+user=redis
+REDIS_HOME=/usr/local/redis
+binfile=$REDIS_HOME/bin/redis-server
+config=$REDIS_HOME/etc/redis.conf
+lock=/var/lock/subsys/redis.lock
+pidfile=/var/run/redis.pid
+prog=redisd
+RETVAL=0
+
+start() {
+    [ -x $binfile ] || exit 5
+    [ -f $config ] || exit 6
+    if [ -e $pidfile ];then
+        status $prog
+        exit 1
+    fi
+    echo -n $"Starting $prog: "
+    daemon sudo -u $user "$binfile $config &>/dev/null"
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && touch $lock $pidfile
+    return $RETVAL
+}
+stop() {
+    echo -n $"Stopping $prog: "
+    killproc $prog -QUIT
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && rm -f $lock $pidfile
+    return $RETAVAL
+}
+case "$1" in
+start)
+    start
+    ;;
+stop)
+    stop
+    ;;
+restart)
+    stop
+	sleep 3
+    start
+    ;;
+status)
+    status $prog
+    ;;
+*)
+    echo $"Usage: $0 {start|stop|status|restart}"
+    RETVAL=1
+esac
+exit $RETVAL

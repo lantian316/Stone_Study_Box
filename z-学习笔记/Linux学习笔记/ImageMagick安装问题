@@ -1,0 +1,10 @@
+参考帖子
+http://www.360doc.com/content/14/1119/14/11029609_426407658.shtml
+http://blog.csdn.net/jiangxinyu/article/details/1698997
+
+yum install ImageMagick
+yum install GraphicsMagick
+如果用 whereis convert  能找到目录就表示安装成功
+如果无法安装或者说没有安装包，可以换yum源池，改阿里云的源即可。
+
+安装完之后可以通过gm -version查看支持的图片库压缩库(例如jpeg、png、bz等)
