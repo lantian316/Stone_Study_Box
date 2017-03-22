@@ -8,7 +8,7 @@ lsnrctl stop
 
 启动orcl实例
 export ORACLE_SID=orcl
-sqlplus / as sysdba 
+sqlplus / as sysdba
 startup 
 quit
 

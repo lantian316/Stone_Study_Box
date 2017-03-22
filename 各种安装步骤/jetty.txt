@@ -1,0 +1,19 @@
+cd /usr/local/src/
+http://central.maven.org/maven2/org/eclipse/jetty/jetty-distribution/9.2.21.v20170120/jetty-distribution-9.2.21.v20170120.tar.gz
+tar -zxf jetty-distribution-9.2.21.v20170120.tar.gz
+mv jetty-distribution-9.2.21.v20170120 ../
+cd /usr/local/
+ln -s jetty-distribution-9.2.21.v20170120 jetty
+cd jetty
+
+安装好了以后，在jetty的主目录下，运行起来。
+java -jar start.jar
+如果仔细看的话还有一个start.ini，这是典型的eclipse启动方式。
+事实上jetty8是按照eclipse的OSGI启动模型来运行的。
+
+
+启动jetty
+/usr/local/jetty/bin/jetty.sh start
+
+关闭jetty
+/usr/local/jetty/bin/jetty.sh stop

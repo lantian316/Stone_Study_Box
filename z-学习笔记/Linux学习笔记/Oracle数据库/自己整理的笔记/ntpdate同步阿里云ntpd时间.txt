@@ -1,0 +1,4 @@
+*/5 * * * * /usr/sbin/ntpdate -u ntp1.aliyun.com >> /tmp/ntpdate.log
+
+
+*/10 * * * * ntpdate 202.112.31.197 > /dev/null 2>&1

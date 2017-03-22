@@ -1,3 +1,7 @@
+以测试机120.25.97.89为蓝本
+/home/beibeibao-online/tools/redis
+部分文件请参考此机器上的配置
+
 获取redis-3.2.5.stone.tar.gz
 
 上传文件
@@ -8,77 +12,22 @@ make
 make install
 
 
-useradd -M -s /sbin/nologin redis
+useradd -M -s /bin/bash redis
 
-PATHREDIS=/usr/local
-REDIS_HOME=/usr/local/redis
-mkdir -p $PATHREDIS/redis/{bin,data,etc,logs}
+PATHREDIS=/home/beibeibao-online/tools
+REDIS_HOME=/home/beibeibao-online/tools/redis
+mkdir -p $REDIS_HOME/{bin,data,etc,logs}
 
-cp ./src/mkreleasehdr.sh $PATHREDIS/redis/bin/
-cp ./src/redis-benchmark $PATHREDIS/redis/bin/
-cp ./src/redis-check-aof $PATHREDIS/redis/bin/
-cp ./src/redis-check-rdb $PATHREDIS/redis/bin/
-cp ./src/redis-cli $PATHREDIS/redis/bin/
-cp ./src/redis-sentinel $PATHREDIS/redis/bin/
-cp ./src/redis-server $PATHREDIS/redis/bin/
-cp ./src/redis-trib.rb $PATHREDIS/redis/bin/
 
-cp ./redis.conf $PATHREDIS/redis/etc/redis.conf.bak
+cp ./src/mkreleasehdr.sh $REDIS_HOME/bin/
+cp ./src/redis-benchmark $REDIS_HOME/bin/
+cp ./src/redis-check-aof $REDIS_HOME/bin/
+cp ./src/redis-check-rdb $REDIS_HOME/bin/
+cp ./src/redis-cli $REDIS_HOME/bin/
+cp ./src/redis-sentinel $REDIS_HOME/bin/
+cp ./src/redis-server $REDIS_HOME/bin/
+cp ./src/redis-trib.rb $REDIS_HOME/bin/
 
-cat > $PATHREDIS/redis/etc/redis.conf <<<EOF
-bind 192.168.1.110
-protected-mode no
-port 6379
-tcp-backlog 511
-timeout 0
-tcp-keepalive 300
-daemonize yes
-supervised no
-pidfile /var/run/redis.pid
-loglevel notice
-logfile "/usr/local/redis/logs/redis.log"
-databases 16
-save 900 1
-save 300 10
-save 60 10000
-stop-writes-on-bgsave-error yes
-rdbcompression yes
-rdbchecksum yes
-dbfilename dump.rdb
-dir /usr/local/redis/data/
-slave-serve-stale-data yes
-slave-read-only yes
-repl-diskless-sync no
-repl-diskless-sync-delay 5
-repl-disable-tcp-nodelay no
-slave-priority 100
-appendonly yes
-appendfilename "appendonly.aof"
-appendfsync everysec
-no-appendfsync-on-rewrite no
-auto-aof-rewrite-percentage 100
-auto-aof-rewrite-min-size 64mb
-aof-load-truncated yes
-lua-time-limit 5000
-slowlog-log-slower-than 10000
-slowlog-max-len 128
-latency-monitor-threshold 0
-notify-keyspace-events ""
-hash-max-ziplist-entries 512
-hash-max-ziplist-value 64
-list-max-ziplist-size -2
-list-compress-depth 0
-set-max-intset-entries 512
-zset-max-ziplist-entries 128
-zset-max-ziplist-value 64
-hll-sparse-max-bytes 3000
-activerehashing yes
-client-output-buffer-limit normal 0 0 0
-client-output-buffer-limit slave 256mb 64mb 60
-client-output-buffer-limit pubsub 32mb 8mb 60
-hz 10
-aof-rewrite-incremental-fsync yes
-EOF
 
 
 

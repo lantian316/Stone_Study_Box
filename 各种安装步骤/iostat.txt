@@ -1,0 +1,68 @@
+iostat
+
+iostat是I/O statistics（输入/输出统计）的缩写，主要的功能是对系统的磁盘I/O操作进行监视。它的输出主要是显示磁盘操作的统计信息，同时给出CPU的使用情况。
+同vmstat一样，iostat也不能对某个进程进行深入分析，仅对系统的整体情况进行分析
+
+
+iostat命令的语法如下：
+iostat [ options ] [ <interval> [ <count> ] ]
+常用选项及参数含义如下：
+-c	显示CPU的使用情况
+-d	显示磁盘的使用情况
+-k	每秒以KB为单位显示数据
+-t	打印出统计信息开始执行的时间
+-x device	指定要统计的磁盘设备名称，默认为所有的磁盘设置
+interval	指定两次统计间隔的时间
+count		按照“interval”指定的时间间隔统计的次数
+
+
+CPU资源监控
+[root@localhost ~]# iostat -c
+Linux 2.6.32-431.17.1.el6.x86_64 (MMM) 	2016年03月30日 	_x86_64_	(2 CPU)
+
+avg-cpu:  %user   %nice %system %iowait  %steal   %idle
+           1.68    0.00    1.01   13.55    0.00   83.76
+在这里，使用了“-c”参数，只显示系统CPU的统计信息，输出中每项代表的含义与sar命令的输出项完全相同
+
+
+[root@localhost ~]# iostat -d 2 3
+Linux 2.6.32-431.17.1.el6.x86_64 (MMM) 	2016年03月30日 	_x86_64_	(2 CPU)
+
+Device:            tps   Blk_read/s   Blk_wrtn/s   Blk_read   Blk_wrtn
+sda              40.34        16.97      2647.07   58955408 9194930520
+
+Device:            tps   Blk_read/s   Blk_wrtn/s   Blk_read   Blk_wrtn
+sda              13.00         0.00       332.00          0        664
+
+Device:            tps   Blk_read/s   Blk_wrtn/s   Blk_read   Blk_wrtn
+sda              21.50         0.00      1068.00          0       2136
+上面每项输出的解释如下：
+tps表示每秒传输给设备的数量
+Blk_read/s表示每秒读取的数据块数
+Blk_wrtn/s表示每秒写入的数据块数
+Blk_read表示读取的所有块数
+Blk_wrtn表示写入的所有块数
+	这里需要注意的一点是，上面输出的第一项是系统从启动到统计时的所有传输信息，第二次输出的数据才代表在检测的时间段内系统的传输值，除非再加-y选项
+	可以通过Blk_read/s和Blk_wrtn/s的值对磁盘的读写性能有一个基本的了解：如果Blk_wrtn/s值很大，表示磁盘的写操作很频繁，可以考虑优化磁盘或优化程序；
+	如果Blk_read/s值很大，表示磁盘的读操作很多，可以将读取的数据放入内存中进行操作。这两个选项的值没有一个固定的大小，根据系统应用的不同，会有不同的值。
+	但是有一个规则还是可以遵循的：长期的、超大的数据读写，肯定是不正常的，这种情况一定会影响系统的性能
+
+利用“iostat -x”组合针对某块硬盘单独统计，如果不指定磁盘，默认是对所有磁盘进行统计
+[root@localhost ~]# iostat -d -x /dev/sda 2 3
+Linux 2.6.32-431.17.1.el6.x86_64 (MMM) 	2016年03月30日 	_x86_64_	(2 CPU)
+
+Device:       rrqm/s   wrqm/s     r/s     w/s   rsec/s   wsec/s avgrq-sz avgqu-sz   await  svctm  %util
+sda          0.01   290.79    0.23   40.11    16.97  2646.89    66.05    0.59   14.52   7.77  31.35
+
+Device:       rrqm/s   wrqm/s     r/s     w/s   rsec/s   wsec/s avgrq-sz avgqu-sz   await  svctm  %util
+sda           0.00    34.50    0.00   12.50     0.00   376.00    30.08   0.13    9.20   9.96  12.45
+
+Device:       rrqm/s   wrqm/s     r/s     w/s   rsec/s   wsec/s avgrq-sz avgqu-sz   await  svctm  %util
+sda           0.00    21.50    0.00   10.50     0.00   256.00    24.38   0.10   10.76   9.71  10.20
+这个输出基本与“sar -d”相同。需要说明的是以下几个选项的含义：
+rrqm/s表示每秒进行合并的读操作数目
+wrqm/s表示每秒进行合并的写操作数目
+r/s表示每秒完全读I/O设备的次数
+w/s表示每秒完全写I/O设备的次数
+rsec/s表示每秒读取的扇区数
+wsec/s表示每秒写入的扇区数

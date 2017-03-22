@@ -1,0 +1,24 @@
+iptables:
+	Firewall:工作在主机或网络边缘，对进出的报文按事先定义的规则进行检查，并且由匹配到的规则进行处理的一组硬件或软件，甚至可能是二者的结合。
+
+	网络层:网络层防火墙
+	应用层:网关
+
+	IDS:
+		HIDS:OSSSEC
+		NISC:snort
+		Filesystem:tripware
+
+	IPS: IDS + Firewall 结合
+
+	honeypot:蜜罐(类似诱捕工具)
+		ssh,
+		
+	Nessus,nmap,
+	
+	BT
+	
+	
+		
+	test
+	
