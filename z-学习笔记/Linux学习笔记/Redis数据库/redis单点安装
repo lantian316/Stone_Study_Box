@@ -6,30 +6,34 @@
 
 上传文件
 
-tar -zxf redis-3.2.5.stone.tar.gz
-cd redis-3.2.5
-make
-make install
+# tar -zxf redis-3.2.5.stone.tar.gz
+# cd redis-3.2.5
+# make
+# make install
 
 
-useradd -M -s /bin/bash redis
+# useradd -M -s /bin/bash redis
 
-PATHREDIS=/home/beibeibao-online/tools
-REDIS_HOME=/home/beibeibao-online/tools/redis
-mkdir -p $REDIS_HOME/{bin,data,etc,logs}
-
-
-cp ./src/mkreleasehdr.sh $REDIS_HOME/bin/
-cp ./src/redis-benchmark $REDIS_HOME/bin/
-cp ./src/redis-check-aof $REDIS_HOME/bin/
-cp ./src/redis-check-rdb $REDIS_HOME/bin/
-cp ./src/redis-cli $REDIS_HOME/bin/
-cp ./src/redis-sentinel $REDIS_HOME/bin/
-cp ./src/redis-server $REDIS_HOME/bin/
-cp ./src/redis-trib.rb $REDIS_HOME/bin/
+# PATHREDIS=/home/beibeibao-online/tools
+# REDIS_HOME=/home/beibeibao-online/tools/redis
+# mkdir -p $REDIS_HOME/{bin,data,etc,logs}
 
 
+# cp ./src/mkreleasehdr.sh $REDIS_HOME/bin/
+# cp ./src/redis-benchmark $REDIS_HOME/bin/
+# cp ./src/redis-check-aof $REDIS_HOME/bin/
+# cp ./src/redis-check-rdb $REDIS_HOME/bin/
+# cp ./src/redis-cli $REDIS_HOME/bin/
+# cp ./src/redis-sentinel $REDIS_HOME/bin/
+# cp ./src/redis-server $REDIS_HOME/bin/
+# cp ./src/redis-trib.rb $REDIS_HOME/bin/
 
+
+修改配置文件
+
+
+最后修改目录权限
+chown -R redis.redis $REDIS_HOME
 
 
 
