@@ -1,0 +1,13 @@
+rman target sys/.@orcl
+rman target sys/pw_db_50@RTS
+
+
+/home/oracle/rman_oracle_RTS_databak
+
+
+
+
+backup database format '/home/oracle/rman_oracle_RTS_databak/rmanback20170323/whole_%d_%U';
+
+
+

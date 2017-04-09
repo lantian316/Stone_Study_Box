@@ -1,0 +1,43 @@
+VPN
+账号：Beibeibao
+密码：BeiBeiBao!#^(
+
+
+bbbzabbix323
+
+121 mpayweb    
+122 posm    
+123 mpayweb2      
+124 paymidact    
+125 posadmin      
+126 oracel 备份库 只读数据      
+50 oracle 主数据库 读写
+
+
+Master-Slave
+
+Server=172.25.0.127
+ServerActive=127.0.0.1
+Hostname=oracel-master
+Include=/usr/local/zabbix/etc/zabbix_agentd.conf.d/*.conf
+UnsafeUserParameters=1
+
+
+wget http://172.25.0.127:8000/disk_io_stat.conf
+wget http://172.25.0.127:8000/memory.conf
+wget http://172.25.0.127:8000/serveralive.conf
+
+
+UserParameter=memory.[*],/usr/local/zabbix_agent/myscripts/memory.sh $1
+UserParameter=serveralive.[*],/usr/local/zabbix_agent/myscripts/serveralive.sh $1
+
+wget http://172.25.0.127:8000/memory.sh
+wget http://172.25.0.127:8000/serveralive.sh
+
+
+
+
+
+
+
+

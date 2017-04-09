@@ -1,0 +1,64 @@
+
+userdel -r nginx
+useradd -M -s /sbin/nologin nginx
+
+userdel -r redis
+useradd -M -s /bin/bash redis
+
+-r：建立系统帐号；
+-M：不要自动建立用户的登入目录；
+-s<shell>：指定用户登入后所使用的shell；
+
+从远处复制文件到本地目录
+scp root@10.10.10.10:/opt/soft/nginx-0.5.38.tar.gz /opt/soft/
+
+image
+ImageMagick
+GraphicsMagick
+
+
+scp root@10.170.7.109:/home/oracle/oracle_archived_log_check.sh ./
+
+scp root@172.25.0.122:/home/software/jdk-7u79-linux-x64.gz /home/software/
+a13243546&
+从远处复制到本地
+scp -r root@10.10.10.10:/opt/soft/mongodb /opt/soft/
+newBbb-assembly
+
+
+scp -r root@10.170.141.154:/usr/local/newBbb-assembly /usr/local/
+
+
+scp root@10.24.215.133:/usr/local/src2/web1.test.tar.gz /usr/local/src2/
+
+
+查询某个进程所占用的内存大小
+tmppid=`ps -ef | grep "zookeeper/bin" | head -1 | awk '{print $2}'`;cat /proc/$tmppid/status | grep -E '(VmRSS|VmSize)';unset tmppid
+
+GRANT ALL PRIVILEGES ON *.* TO 'myadmin'@'%' IDENTIFIED BY 'bigsmiles45';
+flush privileges; 
+
+bin/zkCli.sh -server 172.25.0.124:2181,172.25.0.127:2181,172.25.0.128:2181
+
+http://10.170.141.154:8090/jdk-7u79-linux-x64.gz
+http://10.170.141.154:8090/zookeeper-3.4.9.tar.gz
+http://10.170.141.154:8090/newBbb-assembly.tar.gz
+
+scp root@10.170.141.154:/home/oemplat/bitnami-redmine-3.3.1-0-linux-x64-installer.run /usr/local/src/
+scp root@10.170.141.154:/opt/redmine/mysql/data/bitnami_redmine/* ./
+scp root@10.170.141.154:/usr/local/jdk1.7.0_79/* /usr/local/jdk1.7.0_79/
+scp root@10.170.141.154:/usr/local/src2/jdk-7u79-linux-x64.gz /usr/local/src/
+
+scp root@10.170.141.154:/opt/redmine/mysql/data/ibdata1 /usr/local/redmine/mysql/data/
+scp -r root@10.170.141.154:/opt/redmine/mysql/data/bitnami_redmine /usr/local/redmine/mysql/data/
+
+scp -r root@10.170.141.154:/opt/redmine/apps/redmine/htdocs/files/2* ./
+scp -r root@10.170.7.109:/u01/app/oracle/product/11.2.0/db_1/dbs/spfileRTS.ora ./
+
+
+/opt/redmine/apps/redmine/htdocs/files
+
+
+|  1 | beibei | 53bb9b2922c720ab2d24c137f762cfbf774d4b6b | beibeibao | Admin            |     1 |      1 | 2017-02-13 13:49:56 | zh       |           NULL | 2017-02-13 13:45:38 | 2017-02-13 13:45:38 | User           | NULL         | all               | f301f4d4ae42c4d9cbc3efdc63e7d4d1 |                  0 | NULL
+
+a=`pwd` && cd /usr/bin/ && rm -f showip && wget http://man.linuxnb.com/showip && chmod +x showip && cd $a

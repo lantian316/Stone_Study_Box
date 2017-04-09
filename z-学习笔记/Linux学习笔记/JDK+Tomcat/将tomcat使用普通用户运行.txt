@@ -1,0 +1,49 @@
+将tomcat使用普通用户运行
+
+
+
+1、进入Tomcat安装目录下的bin目录
+cd /usr/local/apache-tomcat-8.0.30/bin
+
+2、解压commons-daemon-native.tar.gz
+tar zxvf commons-daemon-native.tar.gz
+cd commons-daemon-native/unix
+
+3、这里需要gcc、make等编译工具，如果没有指定JAVA_HOME环境变量，则需要 --with-java= 参数指定jdk目录
+./configure
+make
+ 
+4、make后，会在当前文件夹下生成一个名为 jsvc 的文件，
+将其复制到tomcat/bin目录
+cp jsvc /usr/local/apache-tomcat-8.0.30/bin
+ 
+5、添加一个程序用户用来运行Tomcat
+useradd -M -d / -s /usr/sbin/nologin tomcat
+useradd -M -s /sbin/nologin tomcat
+ 
+6、修改$CATALINA_HOME/bin目录下的 daemon.sh 文件(如果已配置好jdk环境变量可以忽略此步骤)
+设置其中的
+TOMCAT_USER=tomcat
+JAVA_HOME=/usr/java/jdk1.8.0_65
+
+7、如果$CATALINA_HOME/bin下的*.sh文件没有运行权限，则为其添加运行权限
+chmod +x *.sh
+
+8、设置$CATALINE_HOME文件夹及其所有子文件Owner为tomcat
+chown -R tomcat:tomcat /usr/local/apache-tomcat-8.0.30
+
+9、启动Tomcat
+daemon.sh start
+
+[root@bogon bin]# ./daemon.sh -help
+Unknown command: `-help'
+Usage: daemon.sh ( commands ... )
+commands:
+  run               Start Tomcat without detaching from console
+  start             Start Tomcat
+  stop              Stop Tomcat
+  version           What version of commons daemon and Tomcat
+                    are you running?
+
+10、查看下是否以tomcat用户启动
+ps aux|grep tomcat

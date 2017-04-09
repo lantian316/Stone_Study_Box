@@ -1,0 +1,28 @@
+错误码:
+ORA-00257: archiver error. Connect internal only, until freed 错误的处理方法
+
+http://blog.csdn.net/panys/article/details/3838846
+
+
+解决方法：
+
+# cd /u01/app/oracle/flash_recovery_area/RTS/archivelog
+看时间，留最后10天，之前的全部删掉。后期脚本实现。
+
+2017_03_14  2017_03_15  2017_03_16  2017_03_17  2017_03_18  2017_03_19  2017_03_20  2017_03_21  2017_03_22  2017_03_23
++++++++++++++++++++++++++++++++++++++++++++
+dir_number=`ls | wc -l`
+while [ $dir_number –gt 10 ]
+do
+	cd /u01/app/oracle/flash_recovery_area/RTS/archivelog
+	rm -rf `ls | head -1`
+	dir_number=`ls | wc -l`
+done
+++++++++++++++++++++++++++++++++++++++++++
+# rman target sys/pw_db_50@RTS
+
+RMAN> crosscheck archivelog all;
+RMAN> delete expired archivelog all;
+RMAN> delete archivelog until time 'sysdate-10';
+
+

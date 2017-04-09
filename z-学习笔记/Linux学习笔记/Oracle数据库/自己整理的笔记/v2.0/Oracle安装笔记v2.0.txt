@@ -1,0 +1,154 @@
+########################以下是root用户操作########################################
+
+# yum -y install gcc gcc-c++ vim screen lrzsz net-tools zip unzip
+
+上传软件、解压软件
+
+# unzip linux.x64_11gR2_database_1of2.zip
+# unzip linux.x64_11gR2_database_2of2.zip
+
+*****--以下步骤使用root用户--*****
+
+1添加ip和主机名对应修改防火墙添加1521
+################################################################
+
+# cp -p /etc/hosts /etc/hosts.bak
+
+# cat >> /etc/hosts <<EOF
+
+## add by oracle
+192.168.1.86    Oracle
+EOF
+
+防火墙配置文件:/etc/sysconfig/iptables
+# iptables -I INPUT 5 -p tcp --dport 1521 -j ACCEPT
+# /etc/init.d/iptables save
+# /etc/init.d/iptables restart
+
+2添加用户、组和路径
+################################################################
+# groupadd -g 1001 oinstall
+# groupadd -g 1002 dba
+# useradd -u 1002 -g oinstall -G dba oracle
+# echo "oracle" | passwd --stdin oracle
+
+# mkdir -p /u01
+# chown -R oracle:oinstall /u01
+
+3修改资源限制
+################################################################
+cp -p /etc/security/limits.conf /etc/security/limits.conf.bak
+
+cat >> /etc/security/limits.conf <<EOF
+##security for user oracle and grid
+oracle soft nproc 2047
+oracle hard nproc 16384
+oracle soft nofile 1024
+oracle hard nofile 65536
+EOF
+
+
+4登陆限制
+################################################################
+cp -p /etc/pam.d/login /etc/pam.d/login.bak
+
+cat >> /etc/pam.d/login <<EOF
+##for oracle
+
+session required pam_limits.so
+EOF
+
+
+cp -p /etc/profile /etc/profile.bak
+
+cat >> /etc/profile <<EOF
+
+##SHELL FOR USER ORACLE AND GRID
+if [ $USER = "oracle" ] ; then
+        if [ $SHELL = "/bin/ksh" ]; then
+         ulimit -p 16384
+              ulimit -n 65536
+        else
+              ulimit -u 16384 -n 65536
+        fi
+        umask 022
+fi
+EOF
+
+
+5修改内核参数
+################################################################
+cp -p /etc/sysctl.conf /etc/sysctl.conf.bak
+
+cat >> /etc/sysctl.conf <<EOF
+##system paramenter for oracle database
+fs.aio-max-nr = 1048576
+fs.file-max = 6815744
+kernel.shmall = 2097152
+kernel.shmmax = 536870912
+kernel.shmmni = 4096
+kernel.sem = 250 32000 100 128
+net.ipv4.ip_local_port_range = 9000 65500
+net.core.rmem_default = 262144
+net.core.rmem_max = 4194304
+net.core.wmem_default = 262144
+net.core.wmem_max = 1048586
+EOF
+
+modprobe bridge
+lsmod|grep bridge
+sysctl -p
+
+
+6安装依赖包
+################################################################
+yum -y install unzip binutils compat-libstdc++-33 elfutils-libelf elfutils-libelf-devel expat gcc gcc-c++ 
+yum -y install glibc glibc-common glibc-devel glibc-headers libaio libaio-devel libgcc libstdc++ libstdc++-devel 
+yum -y install make ksh sysstat unixODBC unixODBC-devel
+yum -y install libaio.i686 glibc.i686 compat-libstdc++-33.i686 libaio-devel.i686 libgcc.i686 libstdc++.i686 
+yum -y install libstdc++-devel.i686 unixODBC.i686 unixODBC-devel.i686 pdksh
+
+
+
+########################以下是oracle用户操作########################################
+7修改oracle用户的变量
+################################################################
+cp -p /home/oracle/.bash_profile /home/oracle/.bash_profile.bak
+
+cat >> /home/oracle/.bash_profile <<EOF
+
+## environment for oracle database
+export ORACLE_BASE=/u01/app/oracle
+export ORACLE_HOME=/u01/app/oracle/product/11.2.0/db_1
+export ORACLE_TERM=xterm
+export PATH=/usr/sbin:\$PATH
+export PATH=\$ORACLE_HOME/bin:\$PATH
+EOF
+
+source /home/oracle/.bash_profile
+++++++++++++++++++++++++++++++++++++++
+export ORACLE_BASE=/u01/app/oracle
+export ORACLE_HOME=/u01/app/oracle/product/11.2.0/db_1
+export ORACLE_TERM=xterm
+export PATH=/usr/sbin:$PATH
+export PATH=$ORACLE_HOME/bin:$PATH
+++++++++++++++++++++++++++++++++++++++
+
+8、准备响应文件并安装
+################################################################
+安装包在cd /usr/local/src/database/
+/usr/local/src/database/runInstaller -silent -force -responseFile '/usr/local/src/database/response/jqd_install_response.rsp'
+################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+

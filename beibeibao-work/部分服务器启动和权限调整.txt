@@ -1,0 +1,34 @@
+mpayweb和mpayadmin
+
+保证以下目录以及子目录以及文件所有者都为tomcat用户
+目录给予644权限，所属用户读写rw，其他用户和组用户4权限读r
+只有tomcat的bin目录下脚本有执行权限x
+/home/beibeibao-online/app/tomcat/mpayweb
+/home/beibeibao-online/wwwdata/mpayweb
+/home/beibeibao-online/logs/mpayweb
+/opt目录以及其下所有子目录
+/home/tomcat/因为要使用dubbo，会在用户家目录生成临时文件，要不然会有问题。所以用户需要有家目录。
+
+/home/beibeibao-online/app/tomcat/mpayadmin
+/home/beibeibao-online/wwwdata/mpayadmin
+/home/beibeibao-online/logs/mpayadmin
+
+tomcat启动方式，现在改为以tomcat用户启动，不要以root用户启动
+
+启动方式如下,请确保工作目录已经切换到tomcat的bin目录下面
+su tomcat -c "./startup.sh"
+关闭方式可以使用脚本关闭，也可以直接kill掉
+
+
+
+
+关于redis的启动方式，redis现在部署在121上面
+/home/beibeibao-online/tools/redis_for_mpay/
+目录给予644权限，所属用户读写rw，其他用户和组用户4权限读r
+只有redis_for_mpay的bin目录下脚本和自定义脚本有执行权限x
+现在改为以redis用户启动，不要以root用户启动
+脚本已经完成，可以直接使用脚本启动或者关闭
+操作之前确保工作目录已经切换到/home/beibeibao-online/tools/redis_for_mpay/
+启动/关闭方式如下:
+	./redis-ctl.sh start
+	./redis-ctl.sh stop

@@ -1,0 +1,195 @@
+﻿一、配置详情
+rac01：
+系统：redhat 6.8 x64bit
+内存：8192M
+版本：oracle 11.2.0.0.4
+网卡：
+192.168.3.111 public
+192.168.3.116 virtualIP
+192.168.1.111 private
+192.168.2.111 shardisk
+rac01：
+系统：redhat 6.8 x64bit
+内存：4096M
+版本：oracle 11.2.0.0.4
+网卡：
+192.168.3.112 public
+192.168.3.117 virtualIP
+192.168.1.112 private
+192.168.2.112 shardisk
+scanIP：192.168.3.115
+二、用户建立
+groupadd -g 1000 oinstall
+groupadd -g 1100 asmadmin
+groupadd -g 1200 dba
+groupadd -g 1201 oper
+groupadd -g 1300 asmdba
+groupadd -g 1301 asmoper
+useradd -u 1100 -g oinstall -G asmadmin,asmdba,asmoper grid
+useradd -u 1101 -g oinstall -G dba,oper,asmdba oracle
+三、配置共享存储
+1、yum -y install iscsi-initiator-utils
+2、启动iscsi服务
+3、探测共享存储iscsi targets
+iscsiadm -m discovery -t sendtargets -p 192.168.2.113:3260
+4、挂载共享存储到本地
+iscsiadm -m node -T iqn.2016-01.example.com:openfiler.ractest.crsvdisk1 -p 192.168.2.113:3260 -l
+iscsiadm -m node -T iqn.2016-01.example.com:openfiler.ractest.crsvdisk2 -p 192.168.2.113:3260 -l
+iscsiadm -m node -T iqn.2016-01.example.com:openfiler.ractest.crsvdisk3 -p 192.168.2.113:3260 -l
+iscsiadm -m node -T iqn.2016-01.example.com:openfiler.ractest.dbfile1 -p 192.168.2.113:3260 -l
+iscsiadm -m node -T iqn.2016-01.example.com:openfiler.ractest.fra1 -p 192.168.2.113:3260 -l
+5、echo "options=--whitelisted --replace-whitespace"  >> /etc/scsi_id.config
+scsi_id --whitelisted --replace-whitespace --device=/dev/sdb --获取硬盘的result值
+rac01
+sdb:14f504e46494c455232337866696e2d4d686e622d6e425863 >O1
+sdc:14f504e46494c45523164664558762d41484e6d2d63703850 >O2
+sdd:14f504e46494c455255556b6b47632d74736b642d6a6b4a4a >O3
+sde:14f504e46494c455255706174574e2d4c4e65702d33304f65 >D1
+sdf:14f504e46494c4552636e6a37446b2d6d5166622d56377478 >F1
+rac02
+sdb:14f504e46494c455232337866696e2d4d686e622d6e425863 >O1
+sdc:14f504e46494c45523164664558762d41484e6d2d63703850 >O2
+sdd:14f504e46494c455255556b6b47632d74736b642d6a6b4a4a >O3
+sde:14f504e46494c455255706174574e2d4c4e65702d33304f65 >D1
+sdf:14f504e46494c4552636e6a37446b2d6d5166622d56377478 >F1
+6、在/etc/udev/rules.d下创建99-oracle-asmdevices.rules文件并写入以下信息
+for i in b c d e f ;
+do
+echo "KERNEL==\"sd*\", BUS==\"scsi\", PROGRAM==\"/sbin/scsi_id --whitelisted --replace-whitespace --device=/dev/\$name\", RESULT==\"`/sbin/scsi_id --whitelisted --replace-whitespace --device=/dev/sd$i`\", NAME=\"asm-disk$i\", OWNER=\"grid\", GROUP=\"asmadmin\", MODE=\"0660\""  >> /etc/udev/rules.d/99-oracle-asmdevices.rules
+done;
+四、安装软件包及调整参数
+1、使用yum安装软件
+yum -y install binutils libstdc++ libXp elfutils-libelf-devel.i686 compat-db.i686 libstdc++-devel.i686 libXp.i686 static compat-db libstdc++-devel openmotif22.i686 libaio-devel.i686 control-center make openmotif22 libaio-devel gcc sysstat compat-libf2c.i686 unixODBC.i686 gcc-c++ libaio.i686 compat-libf2c unixODBC glibc.i686 compat-libstdc++-33.i686 compat-libgcc.i686 unixODBC-devel.i686 glibc libgomp unixODBC-devel glibc-common compat-libstdc++-33-libXmu.i686 libXmu.i686 libgcc.i686 glibc-devel.i686 libXmu libgcc glibc-devel glibc-headers elfutils-libelf libstdc++.i686 kernel-headers elfutils-libelf-devel
+2、配置网络参数
+kernel.shmmni=4096
+kernel.sem=250 32000 100 128
+fs.file-max=6815744
+net.ipv4.ip_local_port_range=9000 65500
+net.core.rmem_default=1048576
+net.core.rmem_max=4194304
+net.core.wmem_default=262144
+net.core.wmem_max=1048576
+fs.aio-max-nr=1048576
+3、资源限制参数
+grid soft nproc 2047
+grid hard nproc 16384
+grid soft nofile 1024
+grid hard nofile 65536
+oracle soft nproc 2047
+oracle hard nproc 16384
+oracle soft nofile 1024
+oracle hard nofile 65536
+4、登录参数调整
+session required /lib64/security/pam_limits.so
+5、配置/etc/profile
+if[\$USER="oracle"]||[\$USER="grid"];then 
+	if[\$SHELL="bin/ksh"];then
+		ulimit -p 16384
+		ulimit -n 65536
+	else
+		ulimit -u 16384 -n 65536
+	fi
+	umask 022
+fi
+6、配置hosts文件
+# rac01
+192.168.3.111 rac01
+192.168.3.116 rac01-vip
+192.168.1.111 rac01-priv
+192.168.2.111 rac01-shar
+# rac02
+192.168.3.112 rac02
+192.168.3.117 rac02-vip
+192.168.1.112 rac-priv
+192.168.2.112 rac-shar
+# scan
+192.168.3.115 scan
+7、配置文件夹
+mkdir -p /u01/app/11g/grid/
+mkdir -p /u01/app/oracle/
+chown -R grid.oinstall /u01/
+chown -R oracle.oinstall /u01/app/oracle/
+chmod 775 /u01/ -R
+8、配置环境变量
+grid：
+alias ls="ls-FA"
+ORACLE_SID=+ASM1;export ORACLE_SID
+ORACLE_BASE=/u01/app/grid;export ORACLE_BASE
+ORACLE_HOME=/u01/app/11g/grid;export ORACLE_HOME
+GRID_HOME=/u01/app/11g/grid;export GRID_HOME
+ORACLE_PATH=/u01/app/oracle/common/oracle/sql;export ORACLE_PATH
+ORACLE_TERM=xterm;export ORACLE_TERM
+TNS_ADMIN=$ORACLE_HOME/network/admin;export TNS_ADMIN 
+PATH=.:${JAVA_HOME}/bin:${PATH}:$HOME/bin:$ORACLE_HOME/bin
+PATH=${PATH}:/usr/bin:/bin:/usr/bin/X11:/usr/local/bin
+PATH=${PATH}:/u01/app/common/oracle/bin
+PATH=$PATH:$ORACLE_HOME/oracm/bin:$ORACLE_HOME/OPatch
+export PATH
+LD_LIBRARY_PATH=$ORACLE_HOME/lib
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$ORACLE_HOME/oracm/lib
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/lib:/usr/lib:/usr/local/lib
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$ORACLE_HOME/ctx/lib
+export LD_LIBRARY_PATH
+CLASSPATH=$ORACLE_HOME/JRE
+CLASSPATH=${CLASSPATH}:$ORACLE_HOME/jlib
+CLASSPATH=${CLASSPATH}:$ORACLE_HOME/rdbms/jlib
+CLASSPATH=${CLASSPATH}:$ORACLE_HOME/network/jlib
+export CLASSPATH
+export TMP=/tmp
+export TMPDIR=/tmp
+export NLS_LANG=AMERICAN_AMERICA.ZHS16GBK
+export SQLPATH=~/admin/sql:/$ORACLE_HOME/sqlplus/admin
+export NLS_DATE_FORMAT='yyyy-mm-dd hh24:mi:ss'
+umask 022
+oracle：
+alias ls="ls-FA"
+ORACLE_SID=ractest1;export ORACLE_SID
+ORACLE_UNQNAME=ractest;export ORACLE_UNQNAME
+ORACLE_BASE=/u01/app/oracle;export ORACLE_BASE
+ORACLE_HOME=$ORACLE_BASE/product/11.2.0/db_1;export ORACLE_HOME
+ORACLE_PATH=/u01/app/common/oracle/sql;export ORACLE_PATH
+ORACLE_TERM=xterm;export ORACLE_TERM
+TNS_ADMIN=$ORACLE_HOME/network/admin;export TNS_ADMIN
+PATH=.:${JAVA_HOME}/bin:${PATH}:$HOME/bin:$ORACLE_HOME/bin
+PATH=${PATH}:/usr/bin:/bin:/usr/bin/X11:/usr/local/bin
+PATH=${PATH}:/u01/app/common/oracle/bin
+PATH=$PATH:$ORACLE_HOME/oracm/bin:$ORACLE_HOME/OPatch
+export PATH
+LD_LIBRARY_PATH=$ORACLE_HOME/lib
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$ORACLE_HOME/oracm/lib
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/lib:/usr/lib:/usr/local/lib
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$ORACLE_HOME/ctx/lib
+export LD_LIBRARY_PATH
+CLASSPATH=$ORACLE_HOME/JRE
+CLASSPATH=${CLASSPATH}:$ORACLE_HOME/jlib
+CLASSPATH=${CLASSPATH}:$ORACLE_HOME/rdbms/jlib
+CLASSPATH=${CLASSPATH}:$ORACLE_HOME/network/jlib
+export CLASSPATH
+export TMP=/tmp
+export TMPDIR=/tmp
+export NLS_LANG=AMERICAN_AMERICA.ZHS16GBK
+alias al="vi$ORACLE_BASE/admin/$ORACLE_SID/bdump/alert_$ORACLE_SID.log"
+alias alt="tail-f $ORACLE_BASE/admin/$ORACLE_SID/bdump/alert_$ORACLE_SID.log"
+export SQLPATH=~/admin/sql:/$ORACLE_HOME/sqlplus/admin
+export NLS_DATE_FORMAT='yyyy-mm-dd hh24:mi:ss'
+umask 022
+9、配置SSH等效性
+mkdir ~/.ssh
+chmod 775 ~/.ssh/
+/usr/bin/ssh-keygen -t dsa
+cat ~/.ssh/id_dsa.pub >> ~/.ssh/authorized_keys
+ssh grid@rac02 cat ~/.ssh/id_dsa.pub >> ~/.ssh/authorized_keys
+chmod 644 ~/.ssh/authorized_keys
+10、配置NTP服务
+chkconfig ntpd off
+mv /etc/ntp.conf /etc/ntp.conf.bak
+11、上传安装文件到rac01节点
+3个文件
+解压grid后进去rpm文件夹安装cvuqdisk
+export CVUQDISK_GRP=oinstall
+rpm -ivh cvuqdisk-1.0.9-1.rpm
+12、验证安装环境
+./runcluvfy.sh stage -pre crsinst -n rac01,rac02 -fixup -verbose
+
+
+

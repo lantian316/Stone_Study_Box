@@ -1,0 +1,43 @@
+[root@iZ94fn0jve4Z /]# iptables -L
+Chain INPUT (policy DROP)
+target     prot opt source               destination         
+ACCEPT     tcp  --  120.25.99.79         anywhere            
+ACCEPT     tcp  --  web1                 anywhere            
+ACCEPT     tcp  --  nginx                anywhere            
+ACCEPT     tcp  --  neo4j_weed_job_grapjob  anywhere            
+ACCEPT     tcp  --  120.76.167.161       anywhere            
+
+Chain FORWARD (policy ACCEPT)
+target     prot opt source               destination         
+
+Chain OUTPUT (policy ACCEPT)
+target     prot opt source               destination 
+
+
+
+
+
+  iptables -A INPUT -p tcp -m tcp --dport 22 -j ACCEPT
+  iptables -A INPUT -i lo -p all -j ACCEPT
+  iptables -A INPUT -m state --state ESTABLISHED -j ACCEPT
+  iptables -P INPUT DROP
+  iptables -A INPUT -s 10.24.223.5 -j ACCEPT
+  iptables -A INPUT -s 10.24.215.129 -j ACCEPT
+  iptables -A INPUT -s 10.24.215.133 -j ACCEPT
+  iptables -A INPUT -s 10.116.161.76 -j ACCEPT
+  iptables -A INPUT -s 120.25.99.79 -j ACCEPT
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

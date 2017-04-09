@@ -1,0 +1,95 @@
+环境
+CentOS 7.2
+Subversion 1.8.8
+
+1、 SVN安装
+# yum -y install subversion
+# apt-get install subversion(ubuntu使用此命令进行安装)
+
+2、 添加SVN管理用户及subversion组
+# groupadd subversion
+# addgroup subversion(ubuntu使用此命令进行添加组)
+# useradd -M -s /bin/bash svnuser -g subversion
+
+3、 创建项目目录
+# mkdir -p /svndata/svn
+# cd /svndata/svn
+# mkdir /svndata/svn/Stone_Study_Box
+
+4、 创建SVN文件仓库
+# svnadmin create /svndata/svn/Stone_Study_Box
+注意:  myProject文件夹必须为空
+
+6、 设置访问权限
+位于/svndata/svn/Stone_Study_Box/conf/文件夹下的authz、passwd、svnserve.conf文件
+svnserve.conf：svn服务配置文件，该文件版本库目录的conf目录下。 
+passwd：用户名口令文件，该文件名在文件svnserve.conf中指定，缺省为同目录下的。 
+authz：权限配置文件，该文件名也在文件svnserve.conf中指定，缺省为同目录下的。
+(1)设置svnserve.conf
+# vim svnserve.conf
+取消一下四行的注释
+anon-access = read
+auth-access = write
+password-db = passwd
+authz-db = authz
+并将anon-access = read的read改为none，禁止匿名用户访问。
+(2)设置passwd
+# vim passwd
+[users]
+admin = admin
+user = user
+设置两个用户admin和user
+(3)设置authz
+# vim authz
+[groups]
+admin = zhangsan
+readuser = lisi
+[/]
+@admin=rw
+*=r
+zhangsan属于admin组，具有读写权限；
+lisi用户属于user组，具有读权限。
+
+---------------------------------
+chown -R svnuser.subversion /svndata/
+
+7、 启动SVN服务
+# svnserve -d -r /svndata/svn
+-d 表示以守护进程模式运行
+-r 指定SVN根目录
+
+
+8、设置SVN开机启动
+(1).创建执行脚本/svndata/svn/svn-ctl.sh
+#!/bin/bash
+if [ $1 == "start" ];then
+	svnserve -d -r /svndata/svn
+elif [ $1 == "stop" ];then
+	pkill svnserve
+fi
+
+(2).添加可执行权限
+#chmod +x /svndata/svn/svn-ctl.sh
+(3).添加自动运行
+#vim /etc/init.d/rc.local
+在最后添加一行内容如下：
+/svndata/svn/svn-ctl.sh start
+(4).检查
+使用ps -aux |grep svn看看svn进程是否启动了。
+
+启动SVN服务
+/svndata/svn/svn-ctl.sh start
+停止SVN服务
+/svndata/svn/svn-ctl.sh stop
+
+仓库根目录
+/svndata/svn/
+现有仓库一个
+Stone_Study_Box
+
+
+访问地址
+svn://121.42.200.110/Stone_Study_Box
+
+用户:stone
+密码:bigsmiles45*

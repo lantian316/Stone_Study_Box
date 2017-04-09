@@ -1,0 +1,40 @@
+1.从二码的生产数据库导出数据
+
+expdp u_***/pw_*** directory=DPDATA schemas=u_youwa dumpfile=u_youwa1212.dmp logfile=20161212.log
+
+2.使用root 帐号登录到 数据库主库172.25.0.50，然后切换到oracle用户下面
+
+su - oracle
+
+3.使用DBA角色登录oracle 实例
+
+sqlplus / as sysdba
+
+4.创建逻辑目录
+
+create directory dmp as '/home/oracle/dmp';
+
+5. 授权给pro_bbbao 去读取dmp目录 和DBA角色；
+
+grant read,write on directory dmp to pro_bbbao;
+
+grant dba to pro_bbbao;
+
+6.把导出的u_youwa1212.dmp 文件拷贝到/home/oracle/dmp目录下面
+
+7.执行导入命令
+
+impdp pro_bbbao/pw_bbbao_888 directory=dmp dumpfile=u_youwa1212.dmp REMAP_SCHEMA=u_youwa:pro_bbbao remap_tablespace=TS_YOUWA:tb_pro_bbbao table_exists_action=replace  logfile=dmp20161212.log
+
+8.如果原先库里面已经有数据，需要先清除库里的数据，否则导入会失败
+
+停止所有连接该数据库的应用，然后删除原先的用户
+
+drop user pro_bbbao cascade;
+
+重新执行第4，5步骤，然后执行第7步骤导入数据。
+
+expdp impdp 更多详细资料和参数，可以参考以下链接：
+
+http://blog.sina.com.cn/s/blog_6734ea6d01016ho7.html
+http://blog.csdn.net/haiross/article/details/27580199/ 

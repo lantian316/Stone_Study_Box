@@ -1,0 +1,59 @@
+# yum -y install gcc gcc-c++ vim screen lrzsz net-tools zip unzip
+
+
+https://github.com/chrislusf/seaweedfs/releases
+第一种安装方法
+	下载命令性质的软件
+	wget https://github.com/chrislusf/seaweedfs/releases/download/0.75/linux_amd64.tar.gz
+解压出来就是一个可执行文件weed
+# ./bin/weed master
+I0404 07:18:01  2303 file_util.go:20] Folder /tmp Permission: -rwxrwxrwx
+I0404 07:18:01  2303 master_server.go:62] Volume Size Limit is 30000 MB
+I0404 07:18:01  2303 master.go:87] Start Seaweed Master 0.74 at 0.0.0.0:9333
+I0404 07:18:01  2303 raft_server.go:56] Peers Change: [localhost:9333] => []
+I0404 07:18:01  2303 raft_server.go:98] Initializing new cluster
+I0404 07:18:01  2303 master_server.go:95] [ localhost:9333 ] I am the leader!
+注意看，它是启动了一个服务，端口是9333，这是它的默认端口。
+
+2 启动文件存储服务
+# ./bin/weed volume -dir="./data" -max=5 -mserver="localhost:9333" -publicUrl=image.images.com -port=8080 &
+
+3 提交一个存储请求，这个时候weed先要分配一个全局的文件ID
+# curl -X POST http://localhost:9333/dir/assign
+
+返回消息
+{"fid":"4,01be076299","url":"127.0.0.1:8080","publicUrl":"127.0.0.1:8080","count":1}
+
+4 存储一张图片
+# curl -X PUT -F file=@/stone1.jpg http://localhost:8080/4,01be076299
+返回消息
+{"name":"stone1.jpg","size":837009}
+
+5 访问测试
+因为我的服务器地址是192.168.1.68，访问以下路径都可以进行访问(注意关闭服务器防火墙)
+http://192.168.1.68:8080/4,01be076299
+http://192.168.1.68:8080/4,01be076299.jpg
+http://192.168.1.68:8080/4,01be076299.png
+http://192.168.1.68:8080/4,01be076299?width=500
+
+删除一个文件
+# curl -X DELETE http://image.images.com/4,03543468b1d8
+暂时还不知道为什么删除文件后4.dat文件不变小，也许后台会在一定时间内清理没有fid的数据
+
+###############################################################################
+
+第二种安装方法(这种方法没有搞懂是什么鬼)
+# yum -y install golang
+	下载软件源码
+	wget https://github.com/chrislusf/seaweedfs/archive/0.75.tar.gz
+
+
+
+
+
+线上启动脚本
+/usr/local/weed/bin/weed -alsologtostderr=true -v=0 -log_dir="/data/logs/weed/m1" master -mdir=/usr/local/weed/m1 -port=9333 -ip="120.76.167.161" &
+/usr/local/weed/bin/weed volume -max=100 -mserver=120.76.167.161:9333 -dir=/data/weed/f1/ -port=8181 -ip=120.76.167.161 -publicUrl=f1bbbao.beibei-bao.com -dataCenter=f1 &
+
+
+
